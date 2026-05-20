@@ -20,8 +20,12 @@ FIND_URL = (
 
 # Koordinaten für Fallback-Punktkarte
 KOORDINATEN = {
+    "Biezwil": (47.200, 7.445), "Schnottwil": (47.180, 7.430),
     "Bettlach": (47.202, 7.413), "Grenchen": (47.192, 7.397),
-    "Selzach": (47.207, 7.469), "Aegerten": (47.113, 7.258),
+    "Selzach": (47.207, 7.469),
+    "Fräschels": (46.994, 7.223), "Kerzers (FR)": (46.975, 7.222),
+    "Ried bei Kerzers (FR)": (46.986, 7.154),
+    "Aegerten": (47.113, 7.258),
     "Bellmund": (47.113, 7.244), "Biel/Bienne": (47.137, 7.247),
     "Brügg": (47.124, 7.244), "Bühl": (47.105, 7.234),
     "Epsach": (47.077, 7.217), "Evilard": (47.148, 7.241),
@@ -44,14 +48,15 @@ KOORDINATEN = {
     "Kallnach": (47.049, 7.206), "Kappelen": (47.043, 7.278),
     "Leuzigen": (47.152, 7.438), "Lyss": (47.074, 7.306),
     "Lüscherz": (47.022, 7.112), "Meienried": (47.119, 7.378),
+    "Meikirch": (47.003, 7.313),
     "Meinisberg": (47.160, 7.340), "Müntschemier": (46.993, 7.073),
     "Oberwil bei Büren": (47.147, 7.386), "Pieterlen": (47.166, 7.356),
     "Radelfingen": (47.047, 7.240), "Rapperswil (BE)": (47.098, 7.316),
     "Rüti bei Büren": (47.127, 7.430), "Schüpfen": (47.032, 7.363),
     "Seedorf (BE)": (47.082, 7.249), "Siselen": (47.033, 7.151),
-    "Treiten": (47.016, 7.140), "Tschugg": (47.023, 7.083),
-    "Täuffelen": (47.052, 7.175), "Vinelz": (47.031, 7.123),
-    "Walperswil": (47.043, 7.165), "Wengi": (47.150, 7.466),
+    "Treiten": (47.018, 7.158), "Tschugg": (47.031, 7.076),
+    "Täuffelen": (47.063, 7.177), "Vinelz": (47.029, 7.138),
+    "Walperswil": (47.051, 7.251), "Wengi": (47.150, 7.466),
 }
 
 
@@ -95,9 +100,8 @@ def lade_daten():
     df = pd.read_excel(
         "10Mio_Initiative_Seeland_Biel.xlsx",
         sheet_name="Gemeindeübersicht",
-        header=8,
+        header=8,        # Zeile 9 = Header; liest alle folgenden Zeilen
         usecols="A:H",
-        nrows=64,
     )
     df.columns = [
         "Gemeinde", "Kt", "Region",
@@ -109,6 +113,8 @@ def lade_daten():
     df["Kt"] = df["Kt"].str.strip()
     df["Region"] = df["Region"].str.strip()
     df["Bev_2024"] = pd.to_numeric(df["Bev_2024"], errors="coerce")
+    # Legendenzeilen am Tabellenende herausfiltern (keine numerische Bevölkerung)
+    df = df.dropna(subset=["Bev_2024"])
     df["Kontingent"] = pd.to_numeric(df["Kontingent"], errors="coerce")
     df["Verf_Wachstum"] = pd.to_numeric(df["Verf_Wachstum"], errors="coerce")
     df["Wachstumsrate"] = pd.to_numeric(df["Wachstumsrate"], errors="coerce")
