@@ -557,11 +557,27 @@ with tab_karte:
 
     st.divider()
     df_w = df[~df["Schrumpfend"]]
+
+    def kachel(col, label, wert):
+        col.markdown(f"""
+        <div style='background:#f5f5f7; border-radius:10px;
+                    padding:1rem 1.1rem 0.9rem;'>
+          <div style='font-size:0.6875rem; font-weight:600;
+                      text-transform:uppercase; letter-spacing:0.06em;
+                      color:#6e6e73; margin-bottom:0.3rem'>{label}</div>
+          <div>
+            <span style='font-size:1.4rem; font-weight:600;
+                         color:#1d1d1f; letter-spacing:-0.3px'>{wert}</span>
+            <span style='font-size:0.8125rem; font-weight:400;
+                         color:#6e6e73; margin-left:5px'>Gemeinden</span>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Limit bis 2030",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
-    c2.metric("Limit 2031–2040",  len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
-    c3.metric("Limit ab 2041",    len(df_w[df_w["Jahre_bis_Limit"] > 14]))
-    c4.metric("Schrumpfend",      len(df[df["Schrumpfend"]]))
+    kachel(c1, "Limit bis 2030",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
+    kachel(c2, "Limit 2031–2040",  len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
+    kachel(c3, "Limit ab 2041",    len(df_w[df_w["Jahre_bis_Limit"] > 14]))
+    kachel(c4, "Schrumpfend",      len(df[df["Schrumpfend"]]))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -704,8 +720,8 @@ with tab_charts:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    "Bevölkerungsdaten: Bieler Tagblatt / kant. Statistikämter  ·  "
-    "CH-Gesamtbevölkerung: BFS, Ende 2024 (9'051'029)  ·  "
+    "Bevölkerungsdaten: Bundesamt für Statistik, Bilanz der ständigen Wohnbevölkerung "
+    "nach Bezirken und Gemeinden, 1991–2024  ·  "
     "Methodik: Proportionale Zuteilung des nationalen Kontingents  ·  "
     "Gemeindegrenzen: © swisstopo (geo.admin.ch)"
 )
