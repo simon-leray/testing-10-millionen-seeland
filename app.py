@@ -1,3 +1,4 @@
+import colorsys
 import concurrent.futures
 import re
 
@@ -8,47 +9,221 @@ import requests
 import streamlit as st
 
 st.set_page_config(
-    page_title="10-Mio-Initiative: Wachstumspotenzial Seeland/Biel",
-    page_icon="🏘️",
+    page_title="10-Mio-Initiative — Seeland/Biel",
+    page_icon=None,
     layout="wide",
 )
 
+# ── Apple-like CSS ────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+/* Base & Typography */
+html, body, [class*="css"] {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: #1d1d1f;
+}
+
+/* Hide Streamlit chrome */
+#MainMenu, footer { visibility: hidden; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+
+/* App background */
+.stApp { background-color: #ffffff; }
+
+/* Main content area */
+.block-container {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+}
+
+/* Title */
+h1 {
+    font-size: 1.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.3px;
+    color: #1d1d1f !important;
+    line-height: 1.25 !important;
+    padding-bottom: 0.25rem;
+}
+
+/* Subheadings */
+h2, h3 {
+    font-weight: 500 !important;
+    color: #1d1d1f !important;
+    letter-spacing: -0.2px;
+}
+
+/* Lead text */
+p { color: #3a3a3c; line-height: 1.6; }
+
+/* Dividers */
+hr {
+    border: none !important;
+    border-top: 1px solid #d2d2d7 !important;
+    margin: 1.5rem 0 !important;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #f5f5f7 !important;
+    border-right: 1px solid #d2d2d7;
+}
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #6e6e73 !important;
+}
+
+/* Input labels */
+label[data-testid="stWidgetLabel"] > div > p,
+.stTextInput label, .stSlider label, .stToggle label {
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.07em !important;
+    color: #6e6e73 !important;
+}
+
+/* Text input */
+.stTextInput input {
+    border: 1px solid #d2d2d7 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    color: #1d1d1f !important;
+    font-size: 0.875rem !important;
+}
+.stTextInput input:focus {
+    border-color: #1d1d1f !important;
+    box-shadow: none !important;
+}
+
+/* Slider track & thumb */
+[data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
+    background-color: #1d1d1f !important;
+    border-color: #1d1d1f !important;
+}
+
+/* Toggle */
+[data-testid="stToggle"] input:checked + div {
+    background-color: #1d1d1f !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    border-bottom: 1px solid #d2d2d7;
+    background: transparent;
+}
+.stTabs [data-baseweb="tab"] {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #6e6e73;
+    padding: 0.625rem 1.125rem;
+    border-radius: 0;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+}
+.stTabs [data-baseweb="tab"]:hover { color: #1d1d1f; }
+.stTabs [aria-selected="true"] {
+    color: #1d1d1f !important;
+    border-bottom: 2px solid #1d1d1f !important;
+    background: transparent !important;
+}
+.stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem; }
+
+/* Metric cards */
+[data-testid="metric-container"] {
+    background: #f5f5f7;
+    border-radius: 10px;
+    padding: 1rem 1.1rem 0.9rem;
+    border: none;
+}
+[data-testid="stMetricLabel"] p {
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #6e6e73 !important;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.4rem !important;
+    font-weight: 600 !important;
+    color: #1d1d1f !important;
+    letter-spacing: -0.3px;
+}
+
+/* Caption */
+.stCaption, [data-testid="stCaptionContainer"] p {
+    color: #6e6e73 !important;
+    font-size: 0.75rem !important;
+}
+
+/* Dataframe */
+[data-testid="stDataFrame"] > div {
+    border: 1px solid #d2d2d7;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Warning / Info */
+[data-testid="stAlert"] {
+    border-radius: 8px;
+    border: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── Konstanten ────────────────────────────────────────────────────────────────
 AKTUELLES_JAHR = 2026
-FIND_URL = (
-    "https://api3.geo.admin.ch/rest/services/api/MapServer/find"
+_FARB_CAP      = 40
+FIND_URL = "https://api3.geo.admin.ch/rest/services/api/MapServer/find"
+
+PLOTLY_LAYOUT = dict(
+    font_family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
+    font_color="#1d1d1f",
+    paper_bgcolor="#ffffff",
+    plot_bgcolor="#ffffff",
+    xaxis=dict(gridcolor="#f0f0f0", linecolor="#d2d2d7", tickcolor="#d2d2d7"),
+    yaxis=dict(gridcolor="#f0f0f0", linecolor="#d2d2d7", tickcolor="#d2d2d7"),
 )
 
-# Koordinaten für Fallback-Punktkarte
+# Koordinaten — Fallback-Punktkarte
 KOORDINATEN = {
     "Biezwil": (47.200, 7.445), "Schnottwil": (47.180, 7.430),
     "Bettlach": (47.202, 7.413), "Grenchen": (47.192, 7.397),
     "Selzach": (47.207, 7.469),
     "Fräschels": (46.994, 7.223), "Kerzers (FR)": (46.975, 7.222),
     "Ried bei Kerzers (FR)": (46.986, 7.154),
-    "Aegerten": (47.113, 7.258),
-    "Bellmund": (47.113, 7.244), "Biel/Bienne": (47.137, 7.247),
-    "Brügg": (47.124, 7.244), "Bühl": (47.105, 7.234),
-    "Epsach": (47.077, 7.217), "Evilard": (47.148, 7.241),
-    "Hagneck": (47.070, 7.220), "Hermrigen": (47.073, 7.178),
-    "Ipsach": (47.107, 7.220), "Jens": (47.080, 7.203),
-    "Lengnau (BE)": (47.178, 7.369), "Ligerz": (47.086, 7.136),
-    "Merzligen": (47.075, 7.198), "Mörigen": (47.088, 7.163),
-    "Nidau": (47.124, 7.234), "Orpund": (47.155, 7.312),
-    "Port": (47.120, 7.258), "Safnern": (47.168, 7.325),
-    "Scheuren": (47.102, 7.251), "Schwadernau": (47.085, 7.233),
-    "Studen (BE)": (47.109, 7.278), "Sutz-Lattrigen": (47.095, 7.168),
-    "Twann-Tüscherz": (47.093, 7.145), "Worben": (47.095, 7.269),
-    "Aarberg": (47.036, 7.278), "Arch": (47.155, 7.469),
-    "Bargen (BE)": (47.176, 7.305), "Brüttelen": (47.027, 7.178),
-    "Büetigen": (47.127, 7.393), "Büren an der Aare": (47.138, 7.374),
-    "Diessbach bei Büren": (47.128, 7.410), "Dotzigen": (47.116, 7.352),
-    "Erlach": (47.041, 7.094), "Finsterhennen": (47.030, 7.162),
-    "Gals": (47.010, 7.063), "Gampelen": (47.004, 7.058),
-    "Grossaffoltern": (47.053, 7.325), "Ins": (46.993, 7.100),
-    "Kallnach": (47.049, 7.206), "Kappelen": (47.043, 7.278),
-    "Leuzigen": (47.152, 7.438), "Lyss": (47.074, 7.306),
-    "Lüscherz": (47.022, 7.112), "Meienried": (47.119, 7.378),
-    "Meikirch": (47.003, 7.313),
+    "Aegerten": (47.113, 7.258), "Bellmund": (47.113, 7.244),
+    "Biel/Bienne": (47.137, 7.247), "Brügg": (47.124, 7.244),
+    "Bühl": (47.105, 7.234), "Epsach": (47.077, 7.217),
+    "Evilard": (47.148, 7.241), "Hagneck": (47.070, 7.220),
+    "Hermrigen": (47.073, 7.178), "Ipsach": (47.107, 7.220),
+    "Jens": (47.080, 7.203), "Lengnau (BE)": (47.178, 7.369),
+    "Ligerz": (47.086, 7.136), "Merzligen": (47.075, 7.198),
+    "Mörigen": (47.088, 7.163), "Nidau": (47.124, 7.234),
+    "Orpund": (47.155, 7.312), "Port": (47.120, 7.258),
+    "Safnern": (47.168, 7.325), "Scheuren": (47.102, 7.251),
+    "Schwadernau": (47.085, 7.233), "Studen (BE)": (47.109, 7.278),
+    "Sutz-Lattrigen": (47.095, 7.168), "Twann-Tüscherz": (47.093, 7.145),
+    "Worben": (47.095, 7.269), "Aarberg": (47.036, 7.278),
+    "Arch": (47.155, 7.469), "Bargen (BE)": (47.176, 7.305),
+    "Brüttelen": (47.027, 7.178), "Büetigen": (47.127, 7.393),
+    "Büren an der Aare": (47.138, 7.374), "Diessbach bei Büren": (47.128, 7.410),
+    "Dotzigen": (47.116, 7.352), "Erlach": (47.041, 7.094),
+    "Finsterhennen": (47.030, 7.162), "Gals": (47.010, 7.063),
+    "Gampelen": (47.004, 7.058), "Grossaffoltern": (47.053, 7.325),
+    "Ins": (46.993, 7.100), "Kallnach": (47.049, 7.206),
+    "Kappelen": (47.043, 7.278), "Leuzigen": (47.152, 7.438),
+    "Lyss": (47.074, 7.306), "Lüscherz": (47.022, 7.112),
+    "Meienried": (47.119, 7.378), "Meikirch": (47.003, 7.313),
     "Meinisberg": (47.160, 7.340), "Müntschemier": (46.993, 7.073),
     "Oberwil bei Büren": (47.147, 7.386), "Pieterlen": (47.166, 7.356),
     "Radelfingen": (47.047, 7.240), "Rapperswil (BE)": (47.098, 7.316),
@@ -67,27 +242,18 @@ def normiere_name(name: str) -> str:
 
 
 def tsd(n) -> str:
-    """Zahl mit Apostroph als Tausendertrennzeichen: 56896 → '56'896'"""
     try:
-        return f"{int(n):,}".replace(",", "’")
+        return f"{int(n):,}".replace(",", "'")
     except (TypeError, ValueError):
         return str(n)
 
 
-_FARB_CAP = 40   # Jahre ab denen Vollgrün angezeigt wird
-
-
 def zeitfarbe(jahre, schrumpfend) -> list:
-    """
-    Kontinuierlicher Farbverlauf rot→grün via HSL-Farbton-Interpolation.
-    Schrumpfende Gemeinden (kein Limit) = Grün wie ≥ _FARB_CAP Jahre.
-    """
-    import colorsys
     if schrumpfend or jahre is None:
         ratio = 1.0
     else:
         ratio = min(float(jahre) / _FARB_CAP, 1.0)
-    hue = ratio * (120 / 360)          # 0° = rot, 120° = grün
+    hue = ratio * (120 / 360)
     r, g, b = colorsys.hls_to_rgb(hue, 0.42, 0.78)
     return [int(r * 255), int(g * 255), int(b * 255), 210]
 
@@ -104,7 +270,7 @@ def lade_daten():
     df = pd.read_excel(
         "10Mio_Initiative_Seeland_Biel.xlsx",
         sheet_name="Gemeindeübersicht",
-        header=8,        # Zeile 9 = Header; liest alle folgenden Zeilen
+        header=8,
         usecols="A:H",
     )
     df.columns = [
@@ -113,18 +279,35 @@ def lade_daten():
         "Wachstumsrate", "Limit_Jahr",
     ]
     df = df.dropna(subset=["Gemeinde"])
-    df["Gemeinde"] = df["Gemeinde"].str.strip()
-    df["Kt"] = df["Kt"].str.strip()
-    df["Region"] = df["Region"].str.strip()
-    df["Bev_2024"] = pd.to_numeric(df["Bev_2024"], errors="coerce")
-    # Legendenzeilen am Tabellenende herausfiltern (keine numerische Bevölkerung)
-    df = df.dropna(subset=["Bev_2024"])
-    df["Kontingent"] = pd.to_numeric(df["Kontingent"], errors="coerce")
-    df["Verf_Wachstum"] = pd.to_numeric(df["Verf_Wachstum"], errors="coerce")
-    df["Wachstumsrate"] = pd.to_numeric(df["Wachstumsrate"], errors="coerce")
-    df["Limit_Jahr"] = df["Limit_Jahr"].astype(str).str.strip()
-    df["Schrumpfend"] = df["Limit_Jahr"].str.contains("schrumpfend|Kein", case=False, na=False)
+    df["Gemeinde"]     = df["Gemeinde"].str.strip()
+    df["Kt"]           = df["Kt"].str.strip()
+    df["Region"]       = df["Region"].str.strip()
+    df["Bev_2024"]     = pd.to_numeric(df["Bev_2024"],     errors="coerce")
+    df = df.dropna(subset=["Bev_2024"])          # Legendenzeilen herausfiltern
+    df["Kontingent"]   = pd.to_numeric(df["Kontingent"],   errors="coerce")
+    df["Verf_Wachstum"]= pd.to_numeric(df["Verf_Wachstum"],errors="coerce")
+    df["Wachstumsrate"]= pd.to_numeric(df["Wachstumsrate"],errors="coerce")
+    df["Limit_Jahr"]   = df["Limit_Jahr"].astype(str).str.strip()
+    df["Schrumpfend"]  = df["Limit_Jahr"].str.contains(
+        "schrumpfend|Kein", case=False, na=False
+    )
     df["Wachstumsrate_Pct"] = (df["Wachstumsrate"] * 100).round(2)
+
+    # Bevölkerung 2014 — direkt aus Seeland_Biel_Bevoelkerung.xlsx
+    bev = pd.read_excel(
+        "Seeland_Biel_Bevoelkerung.xlsx",
+        sheet_name="Seeland & Biel",
+        header=0,
+    )[["Gemeinde", 2014]].rename(columns={2014: "Bev_2014"})
+    bev["Gemeinde"] = bev["Gemeinde"].str.strip()
+    df = df.merge(bev, on="Gemeinde", how="left")
+
+    # Fallback für Gemeinden ohne Eintrag in der Bevoelkerung-Datei
+    mask_fehlt = df["Bev_2014"].isna()
+    df.loc[mask_fehlt, "Bev_2014"] = (
+        df.loc[mask_fehlt, "Bev_2024"] / (1 + df.loc[mask_fehlt, "Wachstumsrate"]) ** 10
+    ).round(0)
+    df["Bev_2014"] = df["Bev_2014"].round(0).astype("Int64")
 
     def berechne_jahre(row):
         if row["Schrumpfend"]:
@@ -140,26 +323,15 @@ def lade_daten():
     return df
 
 
-@st.cache_data(ttl=86400, show_spinner="Lade Gemeindegrenzen von swisstopo …")
+@st.cache_data(ttl=86400, show_spinner="Gemeindegrenzen werden geladen …")
 def lade_geometrien(gemeinden_mit_kanton: tuple) -> dict:
-    """
-    Lädt für jede Gemeinde die aktuellen Polygongrenzen über den geo.admin.ch
-    find-Endpunkt (parallele Anfragen, einmal täglich gecacht).
-    Gibt ein dict {Gemeindename: rings} zurück.
-    """
     def hole_eine(gemeinde, kanton):
-        # Suchstrategie: erst mit originalem Namen (inkl. «(BE)»), dann normiert
-        kandidaten_namen = [gemeinde]
-        normiert = normiere_name(gemeinde)
-        if normiert != gemeinde:
-            kandidaten_namen.append(normiert)
-
-        for suchname in kandidaten_namen:
+        for suchname in [gemeinde, normiere_name(gemeinde)]:
             params = {
                 "layer": "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill",
                 "searchField": "gemname",
                 "searchText": suchname,
-                "contains": "false",   # Exakt-Suche verhindert Falsch-Matches
+                "contains": "false",
                 "returnGeometry": "true",
                 "sr": "4326",
                 "f": "json",
@@ -195,15 +367,10 @@ def lade_geometrien(gemeinden_mit_kanton: tuple) -> dict:
             name, rings = future.result()
             if rings:
                 geometrien[name] = rings
-
     return geometrien
 
 
 def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
-    """
-    Baut flache Dicts für pydeck PolygonLayer.
-    'polygon' enthält die Rings direkt — kein GeoJSON-Nesting nötig.
-    """
     rows = []
     for _, row in df_filtered.iterrows():
         rings = geometrien.get(row["Gemeinde"])
@@ -217,77 +384,82 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
             "color": farbe,
             "Gemeinde": row["Gemeinde"],
             "Kt": row["Kt"],
+            "Bev_2014":      tsd(row["Bev_2014"]),
             "Bev_2024":      tsd(row["Bev_2024"]),
             "Kontingent":    tsd(row["Kontingent"]),
             "Verf_Wachstum": tsd(row["Verf_Wachstum"]),
             "Wachstumsrate_Pct": float(row["Wachstumsrate_Pct"]),
-            "Limit_Jahr": row["Limit_Jahr"],
+            "Limit_Jahr":    row["Limit_Jahr"],
             "Jahre_bis_Limit": jahre_text,
         }
-
-        # Jeden Ring als eigenen Polygon-Eintrag: verhindert, dass getrennte
-        # Gebiete (z.B. Twann + Tüscherz, Erlach + St.-Petersinsel) als
-        # Loch im jeweils anderen interpretiert werden.
         for ring in rings:
             rows.append({"polygon": [ring], **props})
-
     return rows
 
 
-# ── App-Initialisierung ───────────────────────────────────────────────────────
+# ── Initialisierung ───────────────────────────────────────────────────────────
 df_roh = lade_daten()
-
 gemeinden_tuple = tuple(zip(df_roh["Gemeinde"].tolist(), df_roh["Kt"].tolist()))
-geometrien = lade_geometrien(gemeinden_tuple)
-api_verfuegbar = len(geometrien) >= 30  # mind. die Hälfte muss geladen sein
+geometrien      = lade_geometrien(gemeinden_tuple)
+api_verfuegbar  = len(geometrien) >= 30
 
 jahre_vals = df_roh["Jahre_bis_Limit"].dropna()
-jahre_min = int(jahre_vals.min())
-jahre_max = int(jahre_vals.max())
+jahre_min  = int(jahre_vals.min())
+jahre_max  = int(jahre_vals.max())
+
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("🏘️ 10-Millionen-Initiative: Wachstumspotenzial im Seeland/Biel")
+st.title("10-Millionen-Initiative — Wachstumspotenzial Seeland/Biel")
 st.markdown(
-    """
-    Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln.
-    Ende 2024 leben **9'051'029** Personen in der Schweiz — es bleiben noch **948'971** Plätze übrig (+10,5 %).
-    Dieses Kontingent wird proportional auf alle Gemeinden verteilt.
-    Die Farben zeigen, **wie viele Jahre** jede Gemeinde bei aktuellem Wachstum noch hat,
-    bis sie ihr Kontingent ausschöpft.
-    """
+    "Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln. "
+    "Ende 2024 lebten **9'051'029** Personen in der Schweiz — es bleiben noch **948'971** Plätze übrig (+10,5 %). "
+    "Dieses Kontingent wird proportional auf alle Gemeinden verteilt. "
+    "Die Farben zeigen, wie viele Jahre jede Gemeinde bei aktuellem Wachstum noch hat, "
+    "bis sie ihr Kontingent ausschöpft."
 )
 st.divider()
+
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Filter")
 
-    suche = st.text_input("🔍 Gemeinde suchen", "")
+    suche = st.text_input("Gemeinde", placeholder="Name suchen …")
 
     jahre_range = st.slider(
-        "Jahre bis Limit (ab 2026)",
+        "Jahre bis Limit",
         min_value=jahre_min,
         max_value=jahre_max,
         value=(jahre_min, jahre_max),
-        help=(
-            "Filtert nach der geschätzten Restzeit bis das Bevölkerungskontingent "
-            "ausgeschöpft wird. Schrumpfende Gemeinden über den Toggle steuerbar."
-        ),
+        help="Filtert nach der geschätzten Restzeit bis das Kontingent ausgeschöpft wird.",
     )
 
-    schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden anzeigen", value=True)
+    schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
 
     st.divider()
-    st.markdown("**Legende — Jahre bis Limit**")
-    st.markdown("🔴 Sofort dringend (0–5 Jahre)")
-    st.markdown("🟡 Mittelfristig (~20 Jahre)")
-    st.markdown("🟢 Langfristig / schrumpfend (≥ 40 Jahre)")
-    st.caption("Farbverlauf ist kontinuierlich rot→grün.")
+    st.markdown("**Farbskala**", unsafe_allow_html=False)
+    st.markdown(
+        """
+        <div style='font-size:0.75rem; line-height:2; color:#3a3a3c'>
+        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
+                     background:#be1717;margin-right:6px;vertical-align:middle'></span>
+        Dringend — Limit in weniger als 5 Jahren<br>
+        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
+                     background:#bebe17;margin-right:6px;vertical-align:middle'></span>
+        Mittelfristig — rund 20 Jahre<br>
+        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
+                     background:#17be17;margin-right:6px;vertical-align:middle'></span>
+        Langfristig / schrumpfend — 40+ Jahre
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     if not api_verfuegbar:
         st.divider()
-        st.caption("⚠️ Gemeindegrenzen nicht verfügbar — Punktkarte aktiv")
+        st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
 
-# ── Filter anwenden ───────────────────────────────────────────────────────────
+
+# ── Filter ────────────────────────────────────────────────────────────────────
 df = df_roh.copy()
 if suche:
     df = df[df["Gemeinde"].str.contains(suche, case=False, na=False)]
@@ -300,160 +472,160 @@ df_wachsend = df_wachsend[
 df_schrumpf = df[df["Schrumpfend"]].copy() if schrumpfend_zeigen else pd.DataFrame()
 df = pd.concat([df_wachsend, df_schrumpf], ignore_index=True)
 
+
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_karte, tab_tabelle, tab_charts = st.tabs(["🗺️ Karte", "📋 Tabelle", "📊 Charts"])
+tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Charts"])
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# TAB 1: KARTE
+# TAB 1 — KARTE
 # ════════════════════════════════════════════════════════════════════════════
 with tab_karte:
     if df.empty:
-        st.warning("Keine Gemeinden mit den aktuellen Filtereinstellungen.")
+        st.warning("Keine Gemeinden entsprechen den aktuellen Filtereinstellungen.")
     elif not api_verfuegbar:
-        # ── Fallback: Punktkarte ─────────────────────────────────────────
         st.info("Gemeindegrenzen konnten nicht geladen werden — Darstellung als Punkte.")
-        df["farbe"] = df.apply(lambda r: zeitfarbe(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
-        max_bev = df_roh["Bev_2024"].max()
+        df["farbe"]  = df.apply(lambda r: zeitfarbe(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
+        max_bev      = df_roh["Bev_2024"].max()
         df["radius"] = (df["Bev_2024"] / max_bev * 2200 + 300).round(0)
-        layer = pdk.Layer(
-            "ScatterplotLayer",
-            data=df,
-            get_position="[lon, lat]",
-            get_fill_color="farbe",
-            get_radius="radius",
-            pickable=True,
-            opacity=0.85,
-        )
+        layer = pdk.Layer("ScatterplotLayer", data=df,
+                          get_position="[lon, lat]", get_fill_color="farbe",
+                          get_radius="radius", pickable=True, opacity=0.85)
         view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
         st.pydeck_chart(
-            pdk.Deck(
-                layers=[layer], initial_view_state=view,
-                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-            ),
+            pdk.Deck(layers=[layer], initial_view_state=view,
+                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"),
             use_container_width=True,
         )
     else:
-        # ── Hauptkarte: Polygone ─────────────────────────────────────────
         features = erstelle_polygon_features(df, geometrien)
-
         if not features:
-            st.warning("Keine Polygone für die gewählten Gemeinden verfügbar.")
+            st.warning("Keine Polygondaten verfügbar. Bitte Seite neu laden.")
         else:
             tooltip = {
                 "html": """
-                <div style='font-family:sans-serif;font-size:13px;min-width:210px'>
-                <b style='font-size:15px'>{Gemeinde}</b>&nbsp;({Kt})<br/>
-                <hr style='margin:5px 0;border-color:#ddd'/>
-                Bevölkerung 2024: <b>{Bev_2024}</b><br/>
-                Kontingent (10 Mio): <b>{Kontingent}</b><br/>
-                Verfügbares Wachstum: <b>{Verf_Wachstum}&nbsp;Pers.</b><br/>
-                Wachstumsrate p.a.: <b>{Wachstumsrate_Pct}&nbsp;%</b><br/>
-                Limit erreicht: <b>{Limit_Jahr}</b><br/>
-                Verbleibende Zeit: <b>{Jahre_bis_Limit}</b>
+                <div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",
+                            Arial,sans-serif; font-size:13px; min-width:220px;
+                            color:#1d1d1f'>
+                  <div style='font-size:15px; font-weight:600;
+                              margin-bottom:8px'>{Gemeinde} <span
+                    style='font-weight:400; color:#6e6e73'>({Kt})</span></div>
+                  <div style='border-top:1px solid #d2d2d7; margin-bottom:8px'></div>
+                  <table style='width:100%; border-collapse:collapse;
+                                font-size:12.5px; line-height:1.7'>
+                    <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
+                        <td style='text-align:right; font-weight:500'>{Bev_2014}</td></tr>
+                    <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
+                        <td style='text-align:right; font-weight:500'>{Bev_2024}</td></tr>
+                    <tr><td style='color:#6e6e73'>Kontingent (10 Mio)</td>
+                        <td style='text-align:right; font-weight:500'>{Kontingent}</td></tr>
+                    <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
+                        <td style='text-align:right; font-weight:500'>{Verf_Wachstum}</td></tr>
+                    <tr><td style='color:#6e6e73'>Wachstumsrate p.a.</td>
+                        <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
+                    <tr><td style='color:#6e6e73'>Limit erreicht</td>
+                        <td style='text-align:right; font-weight:500'>{Limit_Jahr}</td></tr>
+                    <tr><td style='color:#6e6e73'>Verbleibende Zeit</td>
+                        <td style='text-align:right; font-weight:500'>{Jahre_bis_Limit}</td></tr>
+                  </table>
                 </div>""",
                 "style": {
                     "backgroundColor": "white",
-                    "color": "#222",
-                    "border": "1px solid #ddd",
-                    "borderRadius": "5px",
-                    "padding": "10px",
-                    "boxShadow": "2px 2px 6px rgba(0,0,0,0.15)",
+                    "border": "1px solid #d2d2d7",
+                    "borderRadius": "10px",
+                    "padding": "12px 14px",
+                    "boxShadow": "0 4px 16px rgba(0,0,0,0.10)",
                 },
             }
 
             layer = pdk.Layer(
-                "PolygonLayer",
-                data=features,
+                "PolygonLayer", data=features,
                 get_polygon="polygon",
                 get_fill_color="color",
-                get_line_color=[60, 60, 60, 160],
+                get_line_color=[180, 180, 180, 180],
                 line_width_min_pixels=1,
-                pickable=True,
-                filled=True,
-                stroked=True,
-                opacity=0.85,
+                pickable=True, filled=True, stroked=True, opacity=0.85,
             )
-
             st.pydeck_chart(
                 pdk.Deck(
                     layers=[layer],
                     initial_view_state=pdk.ViewState(
-                        latitude=47.09, longitude=7.24, zoom=10, pitch=0
-                    ),
+                        latitude=47.09, longitude=7.24, zoom=10, pitch=0),
                     tooltip=tooltip,
                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
                 ),
                 use_container_width=True,
             )
 
-    # ── Metriken ─────────────────────────────────────────────────────────
     st.divider()
     df_w = df[~df["Schrumpfend"]]
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🔴 Bis 2030 (≤ 4 J.)",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
-    c2.metric("🟡 2031–2040 (5–14 J.)", len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
-    c3.metric("🟢 Ab 2041 (> 14 J.)",   len(df_w[df_w["Jahre_bis_Limit"] > 14]))
-    c4.metric("🟢 Schrumpfend",         len(df[df["Schrumpfend"]]))
+    c1.metric("Limit bis 2030",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
+    c2.metric("Limit 2031–2040",  len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
+    c3.metric("Limit ab 2041",    len(df_w[df_w["Jahre_bis_Limit"] > 14]))
+    c4.metric("Schrumpfend",      len(df[df["Schrumpfend"]]))
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# TAB 2: TABELLE
+# TAB 2 — TABELLE
 # ════════════════════════════════════════════════════════════════════════════
 with tab_tabelle:
     c1, c2, c3 = st.columns(3)
-    c1.metric("Gemeinden (gefiltert)", len(df))
-    c2.metric("Gesamtbevölkerung", f"{df['Bev_2024'].sum():,.0f}".replace(",", "'"))
+    c1.metric("Gemeinden", len(df))
+    c2.metric("Gesamtbevölkerung 2024",
+              f"{int(df['Bev_2024'].sum()):,}".replace(",", "'"))
     c3.metric("Gesamtspielraum",
-              f"{df['Verf_Wachstum'].sum():,.0f}".replace(",", "'") + " Pers.")
+              f"{int(df['Verf_Wachstum'].sum()):,}".replace(",", "'") + " Pers.")
     st.divider()
 
     df_anz = df[[
-        "Gemeinde", "Kt", "Region", "Bev_2024", "Kontingent",
+        "Gemeinde", "Kt", "Region",
+        "Bev_2014", "Bev_2024", "Kontingent",
         "Verf_Wachstum", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_bis_Limit",
     ]].copy()
-    # Vorformatierte Anzeigespalten mit Apostroph-Trennzeichen
-    df_anz["Bev_fmt"]      = df_anz["Bev_2024"].apply(tsd)
-    df_anz["Kont_fmt"]     = df_anz["Kontingent"].apply(tsd)
-    df_anz["Wachst_fmt"]   = df_anz["Verf_Wachstum"].apply(tsd)
+    df_anz["Bev_2014_fmt"]  = df_anz["Bev_2014"].apply(tsd)
+    df_anz["Bev_2024_fmt"]  = df_anz["Bev_2024"].apply(tsd)
+    df_anz["Kont_fmt"]      = df_anz["Kontingent"].apply(tsd)
+    df_anz["Wachst_fmt"]    = df_anz["Verf_Wachstum"].apply(tsd)
     df_anz["Jahre_Anzeige"] = df_anz["Jahre_bis_Limit"].apply(
         lambda x: str(int(x)) if pd.notna(x) else "—"
     )
 
     st.dataframe(
-        df_anz[["Gemeinde", "Kt", "Region", "Bev_fmt", "Kont_fmt",
-                "Wachst_fmt", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_Anzeige"]],
+        df_anz[[
+            "Gemeinde", "Kt", "Region",
+            "Bev_2014_fmt", "Bev_2024_fmt", "Kont_fmt",
+            "Wachst_fmt", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_Anzeige",
+        ]],
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Gemeinde":         st.column_config.TextColumn("Gemeinde"),
-            "Kt":               st.column_config.TextColumn("Kt.", width="small"),
-            "Region":           st.column_config.TextColumn("Region / VK"),
-            "Bev_fmt":          st.column_config.TextColumn("Bev. 2024"),
-            "Kont_fmt":         st.column_config.TextColumn("Kontingent"),
-            "Wachst_fmt":       st.column_config.TextColumn("Verf. Wachstum"),
+            "Gemeinde":        st.column_config.TextColumn("Gemeinde"),
+            "Kt":              st.column_config.TextColumn("Kt.", width="small"),
+            "Region":          st.column_config.TextColumn("Region / VK"),
+            "Bev_2014_fmt":    st.column_config.TextColumn("Bev. 2014"),
+            "Bev_2024_fmt":    st.column_config.TextColumn("Bev. 2024"),
+            "Kont_fmt":        st.column_config.TextColumn("Kontingent"),
+            "Wachst_fmt":      st.column_config.TextColumn("Verf. Wachstum"),
             "Wachstumsrate_Pct": st.column_config.NumberColumn(
-                "Wachstumsrate p.a. (%)", format="%.2f %%"
-            ),
-            "Limit_Jahr":       st.column_config.TextColumn("Limit erreicht"),
-            "Jahre_Anzeige":    st.column_config.TextColumn("Jahre bis Limit"),
+                "Wachstumsrate p.a. (%)", format="%.2f %%"),
+            "Limit_Jahr":      st.column_config.TextColumn("Limit erreicht"),
+            "Jahre_Anzeige":   st.column_config.TextColumn("Jahre bis Limit"),
         },
         height=600,
     )
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# TAB 3: CHARTS
+# TAB 3 — CHARTS
 # ════════════════════════════════════════════════════════════════════════════
 with tab_charts:
 
     # ── Chart 1: Top 15 schnellstwachsende Gemeinden ────────────────────────
     st.subheader("Top 15 schnellstwachsende Gemeinden (CAGR p.a.)")
-
     df_w1 = df.nlargest(15, "Wachstumsrate").copy()
     df_w1["farbe_chart"] = df_w1.apply(
-        lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1
-    )
+        lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
     fig1 = px.bar(
         df_w1.sort_values("Wachstumsrate"),
         x="Wachstumsrate_Pct", y="Gemeinde", orientation="h",
@@ -463,21 +635,17 @@ with tab_charts:
     )
     fig1.update_traces(texttemplate="%{text:.2f} %", textposition="outside")
     fig1.update_layout(
-        showlegend=False, height=450,
-        margin=dict(l=0, r=80, t=20, b=20),
-        xaxis_title="Wachstumsrate p.a. (%)",
+        **PLOTLY_LAYOUT, showlegend=False, height=460,
+        margin=dict(l=0, r=90, t=10, b=10),
     )
     st.plotly_chart(fig1, use_container_width=True)
 
     # ── Chart 2: Kürzester Zeitpuffer ────────────────────────────────────────
     st.subheader("Gemeinden mit dem kürzesten Zeitpuffer bis zum Limit")
-
     df_puffer = df[~df["Schrumpfend"]].nsmallest(20, "Jahre_bis_Limit").copy()
     df_puffer["farbe_chart"] = df_puffer.apply(
-        lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1
-    )
+        lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
     df_puffer["Jahre_int"] = df_puffer["Jahre_bis_Limit"].fillna(0).astype(int)
-
     fig2 = px.bar(
         df_puffer.sort_values("Jahre_bis_Limit"),
         x="Jahre_int", y="Gemeinde", orientation="h",
@@ -487,26 +655,21 @@ with tab_charts:
         custom_data=["Limit_Jahr"],
     )
     fig2.update_traces(
-        texttemplate="%{text} J. (%{customdata[0]})",
-        textposition="outside",
-    )
+        texttemplate="%{text} J. (%{customdata[0]})", textposition="outside")
     fig2.update_layout(
-        showlegend=False, height=500,
-        margin=dict(l=0, r=130, t=20, b=20),
-        xaxis_title="Jahre bis Limit",
+        **PLOTLY_LAYOUT, showlegend=False, height=510,
+        margin=dict(l=0, r=140, t=10, b=10),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
     # ── Chart 3: Scatter Bevölkerung vs. Spielraum ───────────────────────────
     st.subheader("Bevölkerung vs. verfügbares Wachstum")
-
     df_sc = df.copy()
     df_sc["Wachstumsrate_abs"] = df_sc["Wachstumsrate"].abs() * 100
     df_sc["Jahre_text"] = df_sc["Jahre_bis_Limit"].apply(
-        lambda x: str(int(x)) if pd.notna(x) else "Schrumpfend"
-    )
-    top3 = df_sc.nlargest(3, "Verf_Wachstum")["Gemeinde"].tolist()
-    bottom4 = df_sc[~df_sc["Schrumpfend"]].nsmallest(4, "Jahre_bis_Limit")["Gemeinde"].tolist()
+        lambda x: str(int(x)) if pd.notna(x) else "Schrumpfend")
+    top3     = df_sc.nlargest(3, "Verf_Wachstum")["Gemeinde"].tolist()
+    bottom4  = df_sc[~df_sc["Schrumpfend"]].nsmallest(4, "Jahre_bis_Limit")["Gemeinde"].tolist()
     groesste = df_sc.nlargest(2, "Bev_2024")["Gemeinde"].tolist()
     labels_set = set(top3 + bottom4 + groesste)
     df_sc["label"] = df_sc["Gemeinde"].apply(lambda g: g if g in labels_set else "")
@@ -514,14 +677,12 @@ with tab_charts:
     fig3 = px.scatter(
         df_sc,
         x="Bev_2024", y="Verf_Wachstum",
-        color="Region", size="Wachstumsrate_abs", size_max=25,
+        color="Region", size="Wachstumsrate_abs", size_max=24,
         hover_name="Gemeinde",
         hover_data={
-            "Bev_2024": True,
-            "Verf_Wachstum": True,
-            "Wachstumsrate_Pct": True,
-            "Limit_Jahr": True,
-            "Jahre_text": True,
+            "Bev_2014": True, "Bev_2024": True,
+            "Verf_Wachstum": True, "Wachstumsrate_Pct": True,
+            "Limit_Jahr": True, "Jahre_text": True,
             "Wachstumsrate_abs": False,
         },
         text="label",
@@ -530,13 +691,14 @@ with tab_charts:
             "Verf_Wachstum": "Verfügbares Wachstum (Personen)",
             "Wachstumsrate_Pct": "Wachstumsrate p.a. (%)",
             "Jahre_text": "Jahre bis Limit",
+            "Bev_2014": "Bevölkerung 2014",
         },
     )
     fig3.update_traces(textposition="top center", textfont_size=11)
     fig3.update_layout(
-        height=520,
-        margin=dict(l=0, r=0, t=20, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="left", x=0),
+        **PLOTLY_LAYOUT, height=520,
+        margin=dict(l=0, r=0, t=10, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
     st.plotly_chart(fig3, use_container_width=True)
 
@@ -544,8 +706,8 @@ with tab_charts:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    "Bevölkerungsdaten: Bieler Tagblatt / kant. Statistikämter | "
-    "CH-Gesamtbevölkerung: BFS, Ende 2024 (9'051'029) | "
-    "Methodik: Proportionale Zuteilung des nationalen Kontingents | "
+    "Bevölkerungsdaten: Bieler Tagblatt / kant. Statistikämter  ·  "
+    "CH-Gesamtbevölkerung: BFS, Ende 2024 (9'051'029)  ·  "
+    "Methodik: Proportionale Zuteilung des nationalen Kontingents  ·  "
     "Gemeindegrenzen: © swisstopo (geo.admin.ch)"
 )
