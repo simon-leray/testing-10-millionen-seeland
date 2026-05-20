@@ -184,7 +184,7 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
             continue
         jahre = row["Jahre_bis_Limit"]
         farbe = zeitfarbe(jahre, row["Schrumpfend"])
-        jahre_text = f"{int(jahre)} Jahre" if jahre is not None else "Schrumpfend"
+        jahre_text = f"{int(jahre)} Jahre" if pd.notna(jahre) else "Schrumpfend"
 
         features.append({
             "type": "Feature",
@@ -234,11 +234,6 @@ with st.sidebar:
 
     suche = st.text_input("🔍 Gemeinde suchen", "")
 
-    alle_regionen = sorted(df_roh["Region"].unique().tolist())
-    ausgewaehlte_regionen = st.multiselect(
-        "Region / VK", alle_regionen, default=alle_regionen
-    )
-
     jahre_range = st.slider(
         "Jahre bis Limit (ab 2026)",
         min_value=jahre_min,
@@ -267,8 +262,6 @@ with st.sidebar:
 df = df_roh.copy()
 if suche:
     df = df[df["Gemeinde"].str.contains(suche, case=False, na=False)]
-if ausgewaehlte_regionen:
-    df = df[df["Region"].isin(ausgewaehlte_regionen)]
 
 df_wachsend = df[~df["Schrumpfend"]].copy()
 df_wachsend = df_wachsend[
