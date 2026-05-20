@@ -167,11 +167,25 @@ label[data-testid="stWidgetLabel"] > div > p,
     font-size: 0.75rem !important;
 }
 
-/* Dataframe */
+/* Dataframe — helles Design */
 [data-testid="stDataFrame"] > div {
     border: 1px solid #d2d2d7;
     border-radius: 10px;
     overflow: hidden;
+    background: #ffffff !important;
+}
+[data-testid="stDataFrame"] * {
+    color: #1d1d1f !important;
+}
+/* Glide Data Grid canvas-Hintergrund */
+[data-testid="stDataFrame"] canvas {
+    filter: none !important;
+}
+/* Header-Zeile */
+[data-testid="stDataFrame"] [role="columnheader"],
+[data-testid="stDataFrame"] [role="gridcell"] {
+    background: #ffffff !important;
+    color: #1d1d1f !important;
 }
 
 /* Warning / Info */
@@ -294,6 +308,20 @@ def polygon_zentrum(rings) -> tuple:
     lons = [c[0] for c in coords]
     lats = [c[1] for c in coords]
     return (min(lats) + max(lats)) / 2, (min(lons) + max(lons)) / 2
+
+
+def berechne_zoom(rings) -> int:
+    """Passende Zoomstufe basierend auf der Ausdehnung des Polygons."""
+    coords = [c for ring in rings for c in ring]
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    # Faktor 1.4 korrigiert das Aspektverhältnis bei ~47°N
+    extent = max(max(lons) - min(lons), (max(lats) - min(lats)) * 1.4)
+    if extent < 0.025: return 14
+    if extent < 0.06:  return 13
+    if extent < 0.12:  return 12
+    if extent < 0.25:  return 11
+    return 10
 
 
 # ── Daten laden ───────────────────────────────────────────────────────────────
@@ -458,7 +486,7 @@ st.divider()
 with st.sidebar:
     st.header("Filter")
 
-    suche = st.text_input("Gemeinde", placeholder="Name suchen …")
+    suche = st.text_input("Gemeinde", placeholder="Name suchen …", key="suche_input")
 
     schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
 
@@ -469,12 +497,20 @@ with st.sidebar:
     st.divider()
     st.header("Gemeinden")
 
-    for _, row in df_roh.sort_values("Gemeinde").iterrows():
+    gemeinden_iter = df_roh.sort_values("Gemeinde")
+    if suche:
+        gemeinden_iter = gemeinden_iter[
+            gemeinden_iter["Gemeinde"].str.contains(suche, case=False, na=False)
+        ]
+    for _, row in gemeinden_iter.iterrows():
         name   = row["Gemeinde"]
         is_open = st.session_state.selected_gemeinde == name
 
         if st.button(name, key=f"gem_{name}", use_container_width=True):
-            st.session_state.selected_gemeinde = None if is_open else name
+            new_sel = None if is_open else name
+            st.session_state.selected_gemeinde = new_sel
+            if new_sel:                          # Suche leeren, damit keine doppelte Markierung
+                st.session_state["suche_input"] = ""
             st.rerun()
 
         if is_open:
@@ -607,6 +643,7 @@ with tab_karte:
             if zoom_name:
                 if zoom_name in geometrien:
                     clat, clon = polygon_zentrum(geometrien[zoom_name])
+                    zoom_level = berechne_zoom(geometrien[zoom_name])
                 else:
                     zrow = df_roh[df_roh["Gemeinde"] == zoom_name]
                     clat = zrow.iloc[0]["lat"] if not zrow.empty else 47.09
@@ -661,7 +698,7 @@ with tab_karte:
     """, unsafe_allow_html=True)
 
     st.divider()
-    df_w = df[~df["Schrumpfend"]]
+    df_w = df_roh[~df_roh["Schrumpfend"]]
 
     def kachel(col, label, wert):
         col.markdown(f"""
@@ -682,7 +719,7 @@ with tab_karte:
     kachel(c1, "Limit bis 2030",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
     kachel(c2, "Limit 2031–2040",  len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
     kachel(c3, "Limit ab 2041",    len(df_w[df_w["Jahre_bis_Limit"] > 14]))
-    kachel(c4, "Schrumpfend",      len(df[df["Schrumpfend"]]))
+    kachel(c4, "Schrumpfend",      len(df_roh[df_roh["Schrumpfend"]]))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -690,14 +727,14 @@ with tab_karte:
 # ════════════════════════════════════════════════════════════════════════════
 with tab_tabelle:
     c1, c2, c3 = st.columns(3)
-    c1.metric("Gemeinden", len(df))
+    c1.metric("Gemeinden", len(df_roh))
     c2.metric("Gesamtbevölkerung 2024",
-              f"{int(df['Bev_2024'].sum()):,}".replace(",", "'"))
+              f"{int(df_roh['Bev_2024'].sum()):,}".replace(",", "'"))
     c3.metric("Gesamtspielraum",
-              f"{int(df['Verf_Wachstum'].sum()):,}".replace(",", "'") + " Pers.")
+              f"{int(df_roh['Verf_Wachstum'].sum()):,}".replace(",", "'") + " Pers.")
     st.divider()
 
-    df_anz = df[[
+    df_anz = df_roh[[
         "Gemeinde", "Kt", "Region",
         "Bev_2014", "Bev_2024", "Kontingent",
         "Verf_Wachstum", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_bis_Limit",
@@ -742,7 +779,7 @@ with tab_charts:
 
     # ── Chart 1: Top 15 schnellstwachsende Gemeinden ────────────────────────
     st.subheader("Top 15 schnellstwachsende Gemeinden (CAGR p.a.)")
-    df_w1 = df.nlargest(15, "Wachstumsrate").copy()
+    df_w1 = df_roh.nlargest(15, "Wachstumsrate").copy()
     df_w1["farbe_chart"] = df_w1.apply(
         lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
     fig1 = px.bar(
@@ -761,7 +798,7 @@ with tab_charts:
 
     # ── Chart 2: Kürzester Zeitpuffer ────────────────────────────────────────
     st.subheader("Gemeinden mit dem kürzesten Zeitpuffer bis zum Limit")
-    df_puffer = df[~df["Schrumpfend"]].nsmallest(20, "Jahre_bis_Limit").copy()
+    df_puffer = df_roh[~df_roh["Schrumpfend"]].nsmallest(20, "Jahre_bis_Limit").copy()
     df_puffer["farbe_chart"] = df_puffer.apply(
         lambda r: zeitfarbe_hex(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
     df_puffer["Jahre_int"] = df_puffer["Jahre_bis_Limit"].fillna(0).astype(int)
@@ -783,7 +820,7 @@ with tab_charts:
 
     # ── Chart 3: Scatter Bevölkerung vs. Spielraum ───────────────────────────
     st.subheader("Bevölkerung vs. verfügbares Wachstum")
-    df_sc = df.copy()
+    df_sc = df_roh.copy()
     df_sc["Wachstumsrate_abs"] = df_sc["Wachstumsrate"].abs() * 100
     df_sc["Jahre_text"] = df_sc["Jahre_bis_Limit"].apply(
         lambda x: str(int(x)) if pd.notna(x) else "Schrumpfend")
