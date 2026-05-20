@@ -486,7 +486,7 @@ st.divider()
 with st.sidebar:
     st.header("Filter")
 
-    suche = st.text_input("Gemeinde", placeholder="Name suchen …", key="suche_input")
+    suche = st.text_input("Gemeinde", placeholder="Name suchen …")
 
     schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
 
@@ -507,10 +507,7 @@ with st.sidebar:
         is_open = st.session_state.selected_gemeinde == name
 
         if st.button(name, key=f"gem_{name}", use_container_width=True):
-            new_sel = None if is_open else name
-            st.session_state.selected_gemeinde = new_sel
-            if new_sel:                          # Suche leeren, damit keine doppelte Markierung
-                st.session_state["suche_input"] = ""
+            st.session_state.selected_gemeinde = None if is_open else name
             st.rerun()
 
         if is_open:
