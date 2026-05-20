@@ -176,8 +176,11 @@ def lade_geometrien(gemeinden_mit_kanton: tuple) -> dict:
 
 
 def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
-    """Baut pydeck-GeoJSON-Features mit zeitbasierter Farbe."""
-    features = []
+    """
+    Baut flache Dicts für pydeck PolygonLayer.
+    'polygon' enthält die Rings direkt — kein GeoJSON-Nesting nötig.
+    """
+    rows = []
     for _, row in df_filtered.iterrows():
         rings = geometrien.get(row["Gemeinde"])
         if not rings:
@@ -186,22 +189,19 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
         farbe = zeitfarbe(jahre, row["Schrumpfend"])
         jahre_text = f"{int(jahre)} Jahre" if pd.notna(jahre) else "Schrumpfend"
 
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": rings},
-            "properties": {
-                "Gemeinde": row["Gemeinde"],
-                "Kt": row["Kt"],
-                "Bev_2024": int(row["Bev_2024"]),
-                "Kontingent": int(row["Kontingent"]),
-                "Verf_Wachstum": int(row["Verf_Wachstum"]),
-                "Wachstumsrate_Pct": float(row["Wachstumsrate_Pct"]),
-                "Limit_Jahr": row["Limit_Jahr"],
-                "Jahre_bis_Limit": jahre_text,
-                "color": farbe,
-            },
+        rows.append({
+            "polygon": rings,          # PolygonLayer liest rings direkt
+            "color": farbe,            # [R, G, B, A] — direkt referenzierbar
+            "Gemeinde": row["Gemeinde"],
+            "Kt": row["Kt"],
+            "Bev_2024": int(row["Bev_2024"]),
+            "Kontingent": int(row["Kontingent"]),
+            "Verf_Wachstum": int(row["Verf_Wachstum"]),
+            "Wachstumsrate_Pct": float(row["Wachstumsrate_Pct"]),
+            "Limit_Jahr": row["Limit_Jahr"],
+            "Jahre_bis_Limit": jahre_text,
         })
-    return features
+    return rows
 
 
 # ── App-Initialisierung ───────────────────────────────────────────────────────
@@ -334,9 +334,10 @@ with tab_karte:
             }
 
             layer = pdk.Layer(
-                "GeoJsonLayer",
+                "PolygonLayer",
                 data=features,
-                get_fill_color="@@=properties.color",
+                get_polygon="polygon",
+                get_fill_color="color",
                 get_line_color=[60, 60, 60, 160],
                 line_width_min_pixels=1,
                 pickable=True,
