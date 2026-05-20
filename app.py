@@ -488,8 +488,6 @@ with st.sidebar:
 
     suche = st.text_input("Gemeinde", placeholder="Name suchen …")
 
-    schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
-
     if not api_verfuegbar:
         st.divider()
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
@@ -542,9 +540,7 @@ df = df_roh.copy()
 if suche:
     df = df[df["Gemeinde"].str.contains(suche, case=False, na=False)]
 
-df_wachsend = df[~df["Schrumpfend"]].copy()
-df_schrumpf = df[df["Schrumpfend"]].copy() if schrumpfend_zeigen else pd.DataFrame()
-df = pd.concat([df_wachsend, df_schrumpf], ignore_index=True)
+df = df.copy()
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -680,6 +676,7 @@ with tab_karte:
                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
                 ),
                 use_container_width=True,
+                key="hauptkarte",
             )
 
     st.markdown("""
