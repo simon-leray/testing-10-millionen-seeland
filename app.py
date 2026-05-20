@@ -436,10 +436,6 @@ gemeinden_tuple = tuple(zip(df_roh["Gemeinde"].tolist(), df_roh["Kt"].tolist()))
 geometrien      = lade_geometrien(gemeinden_tuple)
 api_verfuegbar  = len(geometrien) >= 30
 
-jahre_vals = df_roh["Jahre_bis_Limit"].dropna()
-jahre_min  = int(jahre_vals.min())
-jahre_max  = int(jahre_vals.max())
-
 
 # ── Session State ─────────────────────────────────────────────────────────────
 if "selected_gemeinde" not in st.session_state:
@@ -464,14 +460,6 @@ with st.sidebar:
 
     suche = st.text_input("Gemeinde", placeholder="Name suchen …")
 
-    jahre_range = st.slider(
-        "Jahre bis Limit",
-        min_value=jahre_min,
-        max_value=jahre_max,
-        value=(jahre_min, jahre_max),
-        help="Filtert nach der geschätzten Restzeit bis das Kontingent ausgeschöpft wird.",
-    )
-
     schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
 
     if not api_verfuegbar:
@@ -486,33 +474,31 @@ with st.sidebar:
         is_open = st.session_state.selected_gemeinde == name
 
         if st.button(name, key=f"gem_{name}", use_container_width=True):
-            if is_open:
-                st.session_state.selected_gemeinde = None
-                is_open = False
-            else:
-                st.session_state.selected_gemeinde = name
-                is_open = True
+            st.session_state.selected_gemeinde = None if is_open else name
+            st.rerun()
 
         if is_open:
             wrate = f"{row['Wachstumsrate_Pct']:.2f} %" if pd.notna(row["Wachstumsrate_Pct"]) else "—"
+            val   = "color:#1d1d1f; text-align:right; font-weight:500"
+            lbl   = "color:#6e6e73"
             st.markdown(f"""
             <div style='background:#eaeaec; border-radius:8px;
                         padding:9px 12px; margin:0 0 4px;
                         font-family:-apple-system,BlinkMacSystemFont,
                         "Helvetica Neue",Arial,sans-serif; font-size:0.78rem;'>
               <table style='width:100%; border-collapse:collapse; line-height:1.9;'>
-                <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
-                    <td style='text-align:right; font-weight:500'>{tsd(row["Bev_2014"])}</td></tr>
-                <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
-                    <td style='text-align:right; font-weight:500'>{tsd(row["Bev_2024"])}</td></tr>
-                <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
-                    <td style='text-align:right; font-weight:500'>{wrate}</td></tr>
-                <tr><td style='color:#6e6e73'>Kontingent</td>
-                    <td style='text-align:right; font-weight:500'>{tsd(row["Kontingent"])}</td></tr>
-                <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
-                    <td style='text-align:right; font-weight:500'>{tsd(row["Verf_Wachstum"])}</td></tr>
-                <tr><td style='color:#6e6e73'>Limite erreicht</td>
-                    <td style='text-align:right; font-weight:500'>{row["Limit_Jahr"]}</td></tr>
+                <tr><td style='{lbl}'>Bevölkerung 2014</td>
+                    <td style='{val}'>{tsd(row["Bev_2014"])}</td></tr>
+                <tr><td style='{lbl}'>Bevölkerung 2024</td>
+                    <td style='{val}'>{tsd(row["Bev_2024"])}</td></tr>
+                <tr><td style='{lbl}'>Wachstum in % p. a.</td>
+                    <td style='{val}'>{wrate}</td></tr>
+                <tr><td style='{lbl}'>Kontingent</td>
+                    <td style='{val}'>{tsd(row["Kontingent"])}</td></tr>
+                <tr><td style='{lbl}'>Verfügbares Wachstum</td>
+                    <td style='{val}'>{tsd(row["Verf_Wachstum"])}</td></tr>
+                <tr><td style='{lbl}'>Limite erreicht</td>
+                    <td style='{val}'>{row["Limit_Jahr"]}</td></tr>
               </table>
             </div>
             """, unsafe_allow_html=True)
@@ -524,10 +510,6 @@ if suche:
     df = df[df["Gemeinde"].str.contains(suche, case=False, na=False)]
 
 df_wachsend = df[~df["Schrumpfend"]].copy()
-df_wachsend = df_wachsend[
-    (df_wachsend["Jahre_bis_Limit"] >= jahre_range[0])
-    & (df_wachsend["Jahre_bis_Limit"] <= jahre_range[1])
-]
 df_schrumpf = df[df["Schrumpfend"]].copy() if schrumpfend_zeigen else pd.DataFrame()
 df = pd.concat([df_wachsend, df_schrumpf], ignore_index=True)
 
@@ -557,7 +539,23 @@ with tab_karte:
             use_container_width=True,
         )
     else:
-        features = erstelle_polygon_features(df, geometrien)
+        # Sicherstellen: ausgewählte Gemeinde ist immer im Layer,
+        # auch wenn sie durch den Filter nicht in df enthalten ist
+        sel_name = st.session_state.selected_gemeinde
+        df_map = df.copy()
+        if sel_name and sel_name not in df_map["Gemeinde"].values:
+            sel_row = df_roh[df_roh["Gemeinde"] == sel_name]
+            if not sel_row.empty:
+                df_map = pd.concat([df_map, sel_row], ignore_index=True)
+
+        features = erstelle_polygon_features(df_map, geometrien)
+
+        # Highlight-Ring für die ausgewählte Gemeinde
+        hl_features = []
+        if sel_name and sel_name in geometrien:
+            for ring in geometrien[sel_name]:
+                hl_features.append({"polygon": [ring]})
+
         if not features:
             st.warning("Keine Polygondaten verfügbar. Bitte Seite neu laden.")
         else:
@@ -632,9 +630,17 @@ with tab_karte:
                 line_width_min_pixels=1,
                 pickable=True, filled=True, stroked=True, opacity=0.85,
             )
+            hl_layer = pdk.Layer(
+                "PolygonLayer", data=hl_features,
+                get_polygon="polygon",
+                get_fill_color=[0, 0, 0, 0],       # transparent fill
+                get_line_color=[30, 30, 30, 255],   # dunkler Rand
+                line_width_min_pixels=3,
+                filled=True, stroked=True,
+            )
             st.pydeck_chart(
                 pdk.Deck(
-                    layers=[layer],
+                    layers=[layer, hl_layer],
                     initial_view_state=view_state,
                     tooltip=tooltip,
                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
