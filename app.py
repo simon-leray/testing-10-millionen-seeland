@@ -98,10 +98,12 @@ label[data-testid="stWidgetLabel"] > div > p,
     background: #ffffff !important;
     color: #1d1d1f !important;
     font-size: 0.875rem !important;
+    caret-color: #1d1d1f !important;
 }
 .stTextInput input:focus {
     border-color: #1d1d1f !important;
     box-shadow: none !important;
+    caret-color: #1d1d1f !important;
 }
 
 /* Slider track & thumb */
@@ -261,6 +263,14 @@ def zeitfarbe(jahre, schrumpfend) -> list:
 def zeitfarbe_hex(jahre, schrumpfend) -> str:
     r, g, b, _ = zeitfarbe(jahre, schrumpfend)
     return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def polygon_zentrum(rings) -> tuple:
+    """Bounding-Box-Mitte aller Ring-Koordinaten ([lon, lat])."""
+    coords = [c for ring in rings for c in ring]
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    return (min(lats) + max(lats)) / 2, (min(lons) + max(lons)) / 2
 
 
 # ── Daten laden ───────────────────────────────────────────────────────────────
@@ -536,6 +546,25 @@ with tab_karte:
                 },
             }
 
+            # Kamera: bei Suche auf gefundene Gemeinde(n) zoomen
+            if suche and not df.empty:
+                erste = df.iloc[0]["Gemeinde"]
+                if erste in geometrien:
+                    clat, clon = polygon_zentrum(geometrien[erste])
+                else:
+                    clat, clon = df.iloc[0]["lat"], df.iloc[0]["lon"]
+                zoom_ziel = 13 if len(df) == 1 else 11
+                view_state = pdk.ViewState(
+                    latitude=clat, longitude=clon,
+                    zoom=zoom_ziel, pitch=0,
+                    transition_duration=1200,
+                )
+            else:
+                view_state = pdk.ViewState(
+                    latitude=47.09, longitude=7.24, zoom=10, pitch=0,
+                    transition_duration=800,
+                )
+
             layer = pdk.Layer(
                 "PolygonLayer", data=features,
                 get_polygon="polygon",
@@ -547,8 +576,7 @@ with tab_karte:
             st.pydeck_chart(
                 pdk.Deck(
                     layers=[layer],
-                    initial_view_state=pdk.ViewState(
-                        latitude=47.09, longitude=7.24, zoom=10, pitch=0),
+                    initial_view_state=view_state,
                     tooltip=tooltip,
                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
                 ),
