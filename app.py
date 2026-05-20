@@ -74,18 +74,22 @@ def tsd(n) -> str:
         return str(n)
 
 
+_FARB_CAP = 40   # Jahre ab denen Vollgrün angezeigt wird
+
+
 def zeitfarbe(jahre, schrumpfend) -> list:
-    """RGBA-Farbe nach Jahren bis zum Limit."""
+    """
+    Kontinuierlicher Farbverlauf rot→grün via HSL-Farbton-Interpolation.
+    Schrumpfende Gemeinden (kein Limit) = Grün wie ≥ _FARB_CAP Jahre.
+    """
+    import colorsys
     if schrumpfend or jahre is None:
-        return [100, 120, 190, 200]
-    if jahre <= 4:
-        return [215, 35, 35, 210]
-    elif jahre <= 14:
-        return [215, 105, 15, 210]
-    elif jahre <= 34:
-        return [205, 185, 10, 210]
+        ratio = 1.0
     else:
-        return [45, 165, 60, 210]
+        ratio = min(float(jahre) / _FARB_CAP, 1.0)
+    hue = ratio * (120 / 360)          # 0° = rot, 120° = grün
+    r, g, b = colorsys.hls_to_rgb(hue, 0.42, 0.78)
+    return [int(r * 255), int(g * 255), int(b * 255), 210]
 
 
 def zeitfarbe_hex(jahre, schrumpfend) -> str:
@@ -209,8 +213,7 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
         farbe = zeitfarbe(jahre, row["Schrumpfend"])
         jahre_text = f"{int(jahre)} Jahre" if pd.notna(jahre) else "Schrumpfend"
 
-        rows.append({
-            "polygon": rings,
+        props = {
             "color": farbe,
             "Gemeinde": row["Gemeinde"],
             "Kt": row["Kt"],
@@ -220,7 +223,14 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
             "Wachstumsrate_Pct": float(row["Wachstumsrate_Pct"]),
             "Limit_Jahr": row["Limit_Jahr"],
             "Jahre_bis_Limit": jahre_text,
-        })
+        }
+
+        # Jeden Ring als eigenen Polygon-Eintrag: verhindert, dass getrennte
+        # Gebiete (z.B. Twann + Tüscherz, Erlach + St.-Petersinsel) als
+        # Loch im jeweils anderen interpretiert werden.
+        for ring in rings:
+            rows.append({"polygon": [ring], **props})
+
     return rows
 
 
@@ -269,11 +279,10 @@ with st.sidebar:
 
     st.divider()
     st.markdown("**Legende — Jahre bis Limit**")
-    st.markdown("🔴 Weniger als 5 Jahre (bis 2030)")
-    st.markdown("🟠 5–14 Jahre (2031–2040)")
-    st.markdown("🟡 15–34 Jahre (2041–2060)")
-    st.markdown("🟢 Mehr als 34 Jahre (ab 2061)")
-    st.markdown("🔵 Schrumpfend — kein Limit in Sicht")
+    st.markdown("🔴 Sofort dringend (0–5 Jahre)")
+    st.markdown("🟡 Mittelfristig (~20 Jahre)")
+    st.markdown("🟢 Langfristig / schrumpfend (≥ 40 Jahre)")
+    st.caption("Farbverlauf ist kontinuierlich rot→grün.")
     if not api_verfuegbar:
         st.divider()
         st.caption("⚠️ Gemeindegrenzen nicht verfügbar — Punktkarte aktiv")
@@ -381,12 +390,11 @@ with tab_karte:
     # ── Metriken ─────────────────────────────────────────────────────────
     st.divider()
     df_w = df[~df["Schrumpfend"]]
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("🔴 Bis 2030",       len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
-    c2.metric("🟠 2031–2040",      len(df_w[(df_w["Jahre_bis_Limit"] > 4)  & (df_w["Jahre_bis_Limit"] <= 14)]))
-    c3.metric("🟡 2041–2060",      len(df_w[(df_w["Jahre_bis_Limit"] > 14) & (df_w["Jahre_bis_Limit"] <= 34)]))
-    c4.metric("🟢 Ab 2061",        len(df_w[df_w["Jahre_bis_Limit"] > 34]))
-    c5.metric("🔵 Schrumpfend",    len(df[df["Schrumpfend"]]))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("🔴 Bis 2030 (≤ 4 J.)",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
+    c2.metric("🟡 2031–2040 (5–14 J.)", len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
+    c3.metric("🟢 Ab 2041 (> 14 J.)",   len(df_w[df_w["Jahre_bis_Limit"] > 14]))
+    c4.metric("🟢 Schrumpfend",         len(df[df["Schrumpfend"]]))
 
 
 # ════════════════════════════════════════════════════════════════════════════
