@@ -512,7 +512,7 @@ with st.sidebar:
 
         if is_open:
             wrate = f"{row['Wachstumsrate_Pct']:.2f} %" if pd.notna(row["Wachstumsrate_Pct"]) else "—"
-            val   = "color:#1d1d1f; text-align:right; font-weight:500"
+            val   = "color:#1d1d1f; text-align:right; font-weight:500; white-space:nowrap"
             lbl   = "color:#6e6e73"
             st.markdown(f"""
             <div style='background:#eaeaec; border-radius:8px;
