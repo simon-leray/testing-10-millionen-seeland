@@ -179,6 +179,29 @@ label[data-testid="stWidgetLabel"] > div > p,
     border-radius: 8px;
     border: none;
 }
+
+/* Sidebar — Gemeinde-Listenbuttons */
+[data-testid="stSidebar"] .stButton > button {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid #e8e8ed !important;
+    border-radius: 0 !important;
+    color: #1d1d1f !important;
+    font-size: 0.8125rem !important;
+    font-weight: 400 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 0.45rem 0.25rem !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+    transition: background 0.15s ease, border-radius 0.15s ease !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: #e8e8ed !important;
+    border-radius: 6px !important;
+    border-bottom-color: transparent !important;
+    color: #1d1d1f !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -418,6 +441,11 @@ jahre_min  = int(jahre_vals.min())
 jahre_max  = int(jahre_vals.max())
 
 
+# ── Session State ─────────────────────────────────────────────────────────────
+if "selected_gemeinde" not in st.session_state:
+    st.session_state.selected_gemeinde = None
+
+
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("10-Millionen-Initiative — Wachstumspotenzial Seeland/Biel")
 st.markdown(
@@ -446,27 +474,48 @@ with st.sidebar:
 
     schrumpfend_zeigen = st.toggle("Schrumpfende Gemeinden", value=True)
 
-    st.divider()
-    st.markdown("**Farbskala**", unsafe_allow_html=False)
-    st.markdown(
-        """
-        <div style='font-size:0.75rem; line-height:2; color:#3a3a3c'>
-        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
-                     background:#be1717;margin-right:6px;vertical-align:middle'></span>
-        Dringend — Limit in weniger als 5 Jahren<br>
-        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
-                     background:#bebe17;margin-right:6px;vertical-align:middle'></span>
-        Mittelfristig — rund 20 Jahre<br>
-        <span style='display:inline-block;width:10px;height:10px;border-radius:2px;
-                     background:#17be17;margin-right:6px;vertical-align:middle'></span>
-        Langfristig / schrumpfend — 40+ Jahre
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     if not api_verfuegbar:
         st.divider()
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
+
+    st.divider()
+    st.header("Gemeinden")
+
+    for _, row in df_roh.sort_values("Gemeinde").iterrows():
+        name   = row["Gemeinde"]
+        is_open = st.session_state.selected_gemeinde == name
+
+        if st.button(name, key=f"gem_{name}", use_container_width=True):
+            if is_open:
+                st.session_state.selected_gemeinde = None
+                is_open = False
+            else:
+                st.session_state.selected_gemeinde = name
+                is_open = True
+
+        if is_open:
+            wrate = f"{row['Wachstumsrate_Pct']:.2f} %" if pd.notna(row["Wachstumsrate_Pct"]) else "—"
+            st.markdown(f"""
+            <div style='background:#eaeaec; border-radius:8px;
+                        padding:9px 12px; margin:0 0 4px;
+                        font-family:-apple-system,BlinkMacSystemFont,
+                        "Helvetica Neue",Arial,sans-serif; font-size:0.78rem;'>
+              <table style='width:100%; border-collapse:collapse; line-height:1.9;'>
+                <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
+                    <td style='text-align:right; font-weight:500'>{tsd(row["Bev_2014"])}</td></tr>
+                <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
+                    <td style='text-align:right; font-weight:500'>{tsd(row["Bev_2024"])}</td></tr>
+                <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
+                    <td style='text-align:right; font-weight:500'>{wrate}</td></tr>
+                <tr><td style='color:#6e6e73'>Kontingent</td>
+                    <td style='text-align:right; font-weight:500'>{tsd(row["Kontingent"])}</td></tr>
+                <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
+                    <td style='text-align:right; font-weight:500'>{tsd(row["Verf_Wachstum"])}</td></tr>
+                <tr><td style='color:#6e6e73'>Limite erreicht</td>
+                    <td style='text-align:right; font-weight:500'>{row["Limit_Jahr"]}</td></tr>
+              </table>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ── Filter ────────────────────────────────────────────────────────────────────
@@ -546,17 +595,27 @@ with tab_karte:
                 },
             }
 
-            # Kamera: bei Suche auf gefundene Gemeinde(n) zoomen
-            if suche and not df.empty:
-                erste = df.iloc[0]["Gemeinde"]
-                if erste in geometrien:
-                    clat, clon = polygon_zentrum(geometrien[erste])
+            # Kamera: Sidebar-Auswahl hat Vorrang, dann Suche, dann Standardansicht
+            zoom_name  = None
+            zoom_level = 10
+
+            if st.session_state.selected_gemeinde:
+                zoom_name  = st.session_state.selected_gemeinde
+                zoom_level = 13
+            elif suche and not df.empty:
+                zoom_name  = df.iloc[0]["Gemeinde"]
+                zoom_level = 13 if len(df) == 1 else 11
+
+            if zoom_name:
+                if zoom_name in geometrien:
+                    clat, clon = polygon_zentrum(geometrien[zoom_name])
                 else:
-                    clat, clon = df.iloc[0]["lat"], df.iloc[0]["lon"]
-                zoom_ziel = 13 if len(df) == 1 else 11
+                    zrow = df_roh[df_roh["Gemeinde"] == zoom_name]
+                    clat = zrow.iloc[0]["lat"] if not zrow.empty else 47.09
+                    clon = zrow.iloc[0]["lon"] if not zrow.empty else 7.24
                 view_state = pdk.ViewState(
                     latitude=clat, longitude=clon,
-                    zoom=zoom_ziel, pitch=0,
+                    zoom=zoom_level, pitch=0,
                     transition_duration=1200,
                 )
             else:
@@ -582,6 +641,18 @@ with tab_karte:
                 ),
                 use_container_width=True,
             )
+
+    st.markdown("""
+    <div style='display:flex; align-items:center; gap:10px; margin:14px 0 6px;'>
+      <span style='font-size:0.72rem; color:#6e6e73;
+                   white-space:nowrap'>Limit bald</span>
+      <div style='flex:1; height:6px; border-radius:3px;
+                  background:linear-gradient(to right,
+                    #be1717 0%, #bebe17 50%, #17be17 100%)'></div>
+      <span style='font-size:0.72rem; color:#6e6e73;
+                   white-space:nowrap'>Langfristig / schrumpfend</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.divider()
     df_w = df[~df["Schrumpfend"]]
