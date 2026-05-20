@@ -61,6 +61,14 @@ def normiere_name(name: str) -> str:
     return re.sub(r"\s*\([^)]+\)", "", name).strip()
 
 
+def tsd(n) -> str:
+    """Zahl mit Apostroph als Tausendertrennzeichen: 56896 → '56'896'"""
+    try:
+        return f"{int(n):,}".replace(",", "’")
+    except (TypeError, ValueError):
+        return str(n)
+
+
 def zeitfarbe(jahre, schrumpfend) -> list:
     """RGBA-Farbe nach Jahren bis zum Limit."""
     if schrumpfend or jahre is None:
@@ -130,38 +138,44 @@ def lade_geometrien(gemeinden_mit_kanton: tuple) -> dict:
     Gibt ein dict {Gemeindename: rings} zurück.
     """
     def hole_eine(gemeinde, kanton):
-        suchname = normiere_name(gemeinde)
-        params = {
-            "layer": "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill",
-            "searchField": "gemname",
-            "searchText": suchname,
-            "returnGeometry": "true",
-            "sr": "4326",
-            "f": "json",
-        }
-        try:
-            r = requests.get(FIND_URL, params=params, timeout=20)
-            r.raise_for_status()
-            results = r.json().get("results", [])
-            # Aktuelle Gemeinde, bevorzugt mit passendem Kanton
-            aktuell = [x for x in results if x.get("attributes", {}).get("is_current_jahr")]
-            if not aktuell:
-                # Fallback: neuestes Jahr
-                aktuell = sorted(
-                    results, key=lambda x: x.get("attributes", {}).get("jahr", 0), reverse=True
-                )[:1]
-            # Kantonsfilter bei Namenskonflikten
-            kt_treffer = [
-                x for x in aktuell
-                if x.get("attributes", {}).get("kanton", "").upper() == kanton.upper()
-            ]
-            kandidat = kt_treffer[0] if kt_treffer else (aktuell[0] if aktuell else None)
-            if kandidat:
-                rings = kandidat.get("geometry", {}).get("rings", [])
-                if rings:
-                    return gemeinde, rings
-        except Exception:
-            pass
+        # Suchstrategie: erst mit originalem Namen (inkl. «(BE)»), dann normiert
+        kandidaten_namen = [gemeinde]
+        normiert = normiere_name(gemeinde)
+        if normiert != gemeinde:
+            kandidaten_namen.append(normiert)
+
+        for suchname in kandidaten_namen:
+            params = {
+                "layer": "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill",
+                "searchField": "gemname",
+                "searchText": suchname,
+                "contains": "false",   # Exakt-Suche verhindert Falsch-Matches
+                "returnGeometry": "true",
+                "sr": "4326",
+                "f": "json",
+            }
+            try:
+                r = requests.get(FIND_URL, params=params, timeout=20)
+                r.raise_for_status()
+                results = r.json().get("results", [])
+                aktuell = [x for x in results if x.get("attributes", {}).get("is_current_jahr")]
+                if not aktuell:
+                    aktuell = sorted(
+                        results,
+                        key=lambda x: x.get("attributes", {}).get("jahr", 0),
+                        reverse=True,
+                    )[:1]
+                kt_treffer = [
+                    x for x in aktuell
+                    if x.get("attributes", {}).get("kanton", "").upper() == kanton.upper()
+                ]
+                kandidat = kt_treffer[0] if kt_treffer else (aktuell[0] if aktuell else None)
+                if kandidat:
+                    rings = kandidat.get("geometry", {}).get("rings", [])
+                    if rings:
+                        return gemeinde, rings
+            except Exception:
+                pass
         return gemeinde, None
 
     geometrien = {}
@@ -190,13 +204,13 @@ def erstelle_polygon_features(df_filtered, geometrien: dict) -> list:
         jahre_text = f"{int(jahre)} Jahre" if pd.notna(jahre) else "Schrumpfend"
 
         rows.append({
-            "polygon": rings,          # PolygonLayer liest rings direkt
-            "color": farbe,            # [R, G, B, A] — direkt referenzierbar
+            "polygon": rings,
+            "color": farbe,
             "Gemeinde": row["Gemeinde"],
             "Kt": row["Kt"],
-            "Bev_2024": int(row["Bev_2024"]),
-            "Kontingent": int(row["Kontingent"]),
-            "Verf_Wachstum": int(row["Verf_Wachstum"]),
+            "Bev_2024":      tsd(row["Bev_2024"]),
+            "Kontingent":    tsd(row["Kontingent"]),
+            "Verf_Wachstum": tsd(row["Verf_Wachstum"]),
             "Wachstumsrate_Pct": float(row["Wachstumsrate_Pct"]),
             "Limit_Jahr": row["Limit_Jahr"],
             "Jahre_bis_Limit": jahre_text,
@@ -384,26 +398,26 @@ with tab_tabelle:
         "Gemeinde", "Kt", "Region", "Bev_2024", "Kontingent",
         "Verf_Wachstum", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_bis_Limit",
     ]].copy()
+    # Vorformatierte Anzeigespalten mit Apostroph-Trennzeichen
+    df_anz["Bev_fmt"]      = df_anz["Bev_2024"].apply(tsd)
+    df_anz["Kont_fmt"]     = df_anz["Kontingent"].apply(tsd)
+    df_anz["Wachst_fmt"]   = df_anz["Verf_Wachstum"].apply(tsd)
     df_anz["Jahre_Anzeige"] = df_anz["Jahre_bis_Limit"].apply(
         lambda x: str(int(x)) if pd.notna(x) else "—"
     )
 
     st.dataframe(
-        df_anz.drop(columns=["Jahre_bis_Limit"]),
+        df_anz[["Gemeinde", "Kt", "Region", "Bev_fmt", "Kont_fmt",
+                "Wachst_fmt", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_Anzeige"]],
         use_container_width=True,
         hide_index=True,
         column_config={
             "Gemeinde":         st.column_config.TextColumn("Gemeinde"),
             "Kt":               st.column_config.TextColumn("Kt.", width="small"),
             "Region":           st.column_config.TextColumn("Region / VK"),
-            "Bev_2024":         st.column_config.NumberColumn("Bev. 2024", format="%d"),
-            "Kontingent":       st.column_config.NumberColumn("Kontingent", format="%d"),
-            "Verf_Wachstum":    st.column_config.ProgressColumn(
-                "Verf. Wachstum",
-                format="%d Pers.",
-                min_value=int(df_roh["Verf_Wachstum"].min()),
-                max_value=int(df_roh["Verf_Wachstum"].max()),
-            ),
+            "Bev_fmt":          st.column_config.TextColumn("Bev. 2024"),
+            "Kont_fmt":         st.column_config.TextColumn("Kontingent"),
+            "Wachst_fmt":       st.column_config.TextColumn("Verf. Wachstum"),
             "Wachstumsrate_Pct": st.column_config.NumberColumn(
                 "Wachstumsrate p.a. (%)", format="%.2f %%"
             ),
