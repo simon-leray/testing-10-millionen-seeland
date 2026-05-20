@@ -489,8 +489,11 @@ with st.sidebar:
     suche = st.text_input("Gemeinde", placeholder="Name suchen …")
 
     if not api_verfuegbar:
-        st.divider()
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
+
+    # Slot für Details — visuell direkt unter dem Suchfeld,
+    # wird erst nach der Gemeindeliste befüllt (session_state ist dann aktuell)
+    details_slot = st.empty()
 
     st.divider()
     st.header("Gemeinden")
@@ -501,14 +504,13 @@ with st.sidebar:
             gemeinden_iter["Gemeinde"].str.contains(suche, case=False, na=False)
         ]
     for _, row in gemeinden_iter.iterrows():
-        name       = row["Gemeinde"]
+        name        = row["Gemeinde"]
         is_selected = st.session_state.selected_gemeinde == name
-        label      = f"› {name}" if is_selected else name
+        label       = f"› {name}" if is_selected else name
         if st.button(label, key=f"gem_{name}", use_container_width=True):
             st.session_state.selected_gemeinde = None if is_selected else name
 
-    # ── Details-Panel (kein st.rerun() nötig — session_state wird oben in der
-    #    Schleife sofort gesetzt, danach liest dieses Panel den aktuellen Wert)
+    # Details-Panel in den Slot oben schreiben
     sel = st.session_state.selected_gemeinde
     if sel:
         sel_row = df_roh[df_roh["Gemeinde"] == sel]
@@ -517,31 +519,34 @@ with st.sidebar:
             wrate = f"{r['Wachstumsrate_Pct']:.2f} %" if pd.notna(r["Wachstumsrate_Pct"]) else "—"
             val   = "color:#1d1d1f; text-align:right; font-weight:500; white-space:nowrap"
             lbl   = "color:#6e6e73"
-            st.divider()
-            st.markdown(f"""
-            <div style='font-family:-apple-system,BlinkMacSystemFont,
-                        "Helvetica Neue",Arial,sans-serif;'>
-              <div style='font-size:0.8125rem; font-weight:600; color:#1d1d1f;
-                          margin-bottom:8px'>{sel}</div>
-              <div style='background:#eaeaec; border-radius:8px;
-                          padding:9px 12px; font-size:0.78rem;'>
-                <table style='width:100%; border-collapse:collapse; line-height:1.9;'>
-                  <tr><td style='{lbl}'>Bevölkerung 2014</td>
-                      <td style='{val}'>{tsd(r["Bev_2014"])}</td></tr>
-                  <tr><td style='{lbl}'>Bevölkerung 2024</td>
-                      <td style='{val}'>{tsd(r["Bev_2024"])}</td></tr>
-                  <tr><td style='{lbl}'>Wachstum in % p. a.</td>
-                      <td style='{val}'>{wrate}</td></tr>
-                  <tr><td style='{lbl}'>Kontingent</td>
-                      <td style='{val}'>{tsd(r["Kontingent"])}</td></tr>
-                  <tr><td style='{lbl}'>Verfügbares Wachstum</td>
-                      <td style='{val}'>{tsd(r["Verf_Wachstum"])}</td></tr>
-                  <tr><td style='{lbl}'>Limite erreicht</td>
-                      <td style='{val}'>{r["Limit_Jahr"]}</td></tr>
-                </table>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            with details_slot.container():
+                st.markdown(f"""
+                <div style='font-family:-apple-system,BlinkMacSystemFont,
+                            "Helvetica Neue",Arial,sans-serif;
+                            margin-top:6px;'>
+                  <div style='font-size:0.8125rem; font-weight:600;
+                              color:#1d1d1f; margin-bottom:6px'>{sel}</div>
+                  <div style='background:#eaeaec; border-radius:8px;
+                              padding:9px 12px; font-size:0.78rem;'>
+                    <table style='width:100%; border-collapse:collapse; line-height:1.9;'>
+                      <tr><td style='{lbl}'>Bevölkerung 2014</td>
+                          <td style='{val}'>{tsd(r["Bev_2014"])}</td></tr>
+                      <tr><td style='{lbl}'>Bevölkerung 2024</td>
+                          <td style='{val}'>{tsd(r["Bev_2024"])}</td></tr>
+                      <tr><td style='{lbl}'>Wachstum in % p. a.</td>
+                          <td style='{val}'>{wrate}</td></tr>
+                      <tr><td style='{lbl}'>Kontingent</td>
+                          <td style='{val}'>{tsd(r["Kontingent"])}</td></tr>
+                      <tr><td style='{lbl}'>Verfügbares Wachstum</td>
+                          <td style='{val}'>{tsd(r["Verf_Wachstum"])}</td></tr>
+                      <tr><td style='{lbl}'>Limite erreicht</td>
+                          <td style='{val}'>{r["Limit_Jahr"]}</td></tr>
+                    </table>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        details_slot.empty()
 
 
 # ── Filter ────────────────────────────────────────────────────────────────────
