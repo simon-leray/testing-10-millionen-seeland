@@ -517,16 +517,14 @@ with tab_karte:
                         <td style='text-align:right; font-weight:500'>{Bev_2014}</td></tr>
                     <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
                         <td style='text-align:right; font-weight:500'>{Bev_2024}</td></tr>
-                    <tr><td style='color:#6e6e73'>Kontingent (10 Mio)</td>
+                    <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
+                        <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
+                    <tr><td style='color:#6e6e73'>Kontingent bei 10-Millionen-Schweiz</td>
                         <td style='text-align:right; font-weight:500'>{Kontingent}</td></tr>
                     <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
                         <td style='text-align:right; font-weight:500'>{Verf_Wachstum}</td></tr>
-                    <tr><td style='color:#6e6e73'>Wachstumsrate p.a.</td>
-                        <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
-                    <tr><td style='color:#6e6e73'>Limit erreicht</td>
+                    <tr><td style='color:#6e6e73'>Limite erreicht</td>
                         <td style='text-align:right; font-weight:500'>{Limit_Jahr}</td></tr>
-                    <tr><td style='color:#6e6e73'>Verbleibende Zeit</td>
-                        <td style='text-align:right; font-weight:500'>{Jahre_bis_Limit}</td></tr>
                   </table>
                 </div>""",
                 "style": {
