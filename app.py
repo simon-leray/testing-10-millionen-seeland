@@ -579,7 +579,7 @@ with open("ajour-logo.json") as _f:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
-  <h1 style='font-size:24rem; font-weight:900; letter-spacing:0px;
+  <h1 style='font-size:10rem; font-weight:900; letter-spacing:0px;
              color:#1d1d1f; margin:0 0 0.25rem; line-height:0.95;'>
     Initiative «Keine 10-Millionen-Schweiz»
   </h1>
@@ -895,7 +895,7 @@ with tab_tabelle:
     st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
     ov4, ov5, ov6 = st.columns(3, gap="medium")
-    _ovcard(ov4, 'Kontingent bei Annahme\n"Keine 10-Millionen-Schweiz"', tsd(_kont))
+    _ovcard(ov4, 'Kontingent bei Annahme\n«Keine 10-Millionen-Schweiz»', tsd(_kont))
     _ovcard(ov5, "Verfügbares Wachstum", tsd(_verf))
     _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
 
