@@ -1014,8 +1014,8 @@ def _render_tabelle():
     if _embed:
         # ── Embed: nur Header, keine Kacheln ──────────────────────────────────
         st.markdown(
-            "<h3 style='font-size:1.1rem; font-weight:600; color:#1d1d1f; "
-            "margin:0 0 0.75rem;'>Das ajour-Land im Überblick</h3>",
+            "<h3 style='font-size:1.25rem; font-weight:500; color:#1d1d1f; "
+            "letter-spacing:-0.2px; margin:0 0 0.75rem;'>Das ajour-Land im Überblick</h3>",
             unsafe_allow_html=True,
         )
     else:
@@ -1097,69 +1097,77 @@ def _render_tabelle():
 
     if _embed:
         # Embed: volle Tabelle ohne internen Scroll, Seite wächst natürlich mit
-        st.markdown(f"""
-    <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
-                overflow:hidden; background:#ffffff;">
-      <table id="sort-tbl" style="width:100%; border-collapse:collapse;
-                    font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
-                    background:#ffffff;">
-        <thead>
-          <tr>
-            <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕</th>
-            <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2014 ↕</th>
-            <th style="{_th_sort_r}" data-col="2" data-type="num">Bev. 2024 ↕</th>
-            <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ↕</th>
-            <th style="{_th_sort_r}" data-col="4" data-type="num">Verf. Wachstum ↕</th>
-            <th style="{_th_sort_r}" data-col="5" data-type="num">Wachstum p.a. ↕</th>
-            <th style="{_th_sort}" data-col="6" data-type="str">Limit erreicht ↕</th>
-            <th style="{_th_sort_r}" data-col="7" data-type="num">Jahre bis Limit ↕</th>
-          </tr>
-        </thead>
-        <tbody>{rows_html}</tbody>
-      </table>
-    </div>
-    """, unsafe_allow_html=True)
-        # Sort-JS via components (st.markdown filtert <script> raus)
-        _n_rows  = len(df_roh)
-        _sort_h  = _n_rows * 39 + 46 + 80
+        _n_rows = len(df_roh)
+        _comp_h = _n_rows * 39 + 46 + 4
+
+        _font = "-apple-system,BlinkMacSystemFont,'Helvetic Neue',Arial,sans-serif"
         st.components.v1.html(f"""
+<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;}}
+body{{font-family:{_font};background:#fff;}}
+#wrap{{border:1px solid #d2d2d7;border-radius:10px;overflow:hidden;background:#fff;}}
+table{{width:100%;border-collapse:collapse;background:#fff;}}
+thead th{{
+  padding:10px 14px;text-align:left;font-size:0.75rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:.05em;color:#6e6e73;
+  border-bottom:2px solid #d2d2d7;background:#f5f5f7;white-space:nowrap;
+  cursor:pointer;user-select:none;
+}}
+thead th.right{{text-align:right;}}
+tbody td{{padding:9px 14px;color:#1d1d1f;border-bottom:1px solid #f0f0f0;font-size:0.875rem;}}
+tbody td.right{{text-align:right;font-variant-numeric:tabular-nums;}}
+</style>
+</head><body>
+<div id="wrap">
+<table id="tbl">
+<thead><tr>
+  <th data-col="0" data-type="str">Gemeinde ↕</th>
+  <th class="right" data-col="1" data-type="num">Bev. 2014 ↕</th>
+  <th class="right" data-col="2" data-type="num">Bev. 2024 ↕</th>
+  <th class="right" data-col="3" data-type="num">Kontingent ↕</th>
+  <th class="right" data-col="4" data-type="num">Verf. Wachstum ↕</th>
+  <th class="right" data-col="5" data-type="num">Wachstum p.a. ↕</th>
+  <th data-col="6" data-type="str">Limit erreicht ↕</th>
+  <th class="right" data-col="7" data-type="num">Jahre bis Limit ↕</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+</div>
 <script>
 (function(){{
-  function init(){{
-    var tbl = window.parent.document.getElementById('sort-tbl');
-    if(!tbl){{ setTimeout(init, 100); return; }}
-    var asc = {{}};
-    tbl.querySelectorAll('thead th').forEach(function(th){{
-      th.style.cursor = 'pointer';
-      th.addEventListener('click', function(){{
-        var col = +this.dataset.col;
-        var type = this.dataset.type;
-        asc[col] = !asc[col];
-        var tbody = tbl.querySelector('tbody');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        rows.sort(function(a,b){{
-          var av = a.cells[col].textContent.trim();
-          var bv = b.cells[col].textContent.trim();
-          if(type==='num'){{
-            av = parseFloat(av.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
-            bv = parseFloat(bv.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
-          }}
-          if(av<bv) return asc[col]?-1:1;
-          if(av>bv) return asc[col]?1:-1;
-          return 0;
-        }});
-        rows.forEach(function(r){{ tbody.appendChild(r); }});
-        tbl.querySelectorAll('thead th').forEach(function(h){{
-          h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
-        }});
-        this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col]?' ↑':' ↓');
+  var tbl = document.getElementById('tbl');
+  var asc = {{}};
+  tbl.querySelectorAll('thead th').forEach(function(th){{
+    th.addEventListener('click', function(){{
+      var col  = +this.dataset.col;
+      var type = this.dataset.type;
+      asc[col] = !asc[col];
+      var tbody = tbl.querySelector('tbody');
+      var rows  = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort(function(a,b){{
+        var av = a.cells[col].textContent.trim();
+        var bv = b.cells[col].textContent.trim();
+        if(type==='num'){{
+          av = parseFloat(av.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+          bv = parseFloat(bv.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+        }}
+        if(av<bv) return asc[col]?-1:1;
+        if(av>bv) return asc[col]?1:-1;
+        return 0;
       }});
+      rows.forEach(function(r){{ tbody.appendChild(r); }});
+      tbl.querySelectorAll('thead th').forEach(function(h){{
+        h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
+      }});
+      this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col]?' ↑':' ↓');
     }});
-  }}
-  init();
+  }});
 }})();
 </script>
-""", height=0)
+</body></html>
+""", height=_comp_h, scrolling=False)
         return
     else:
         st.markdown(f"""
