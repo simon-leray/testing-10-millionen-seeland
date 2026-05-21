@@ -327,11 +327,24 @@ if _embed:
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
 button[kind="header"] { display: none !important; }
+/* Header-Bereich komplett wegklappen */
+header[data-testid="stHeader"] {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
 .block-container {
-    padding-top: 0.5rem !important;
+    padding-top: 0.75rem !important;
     padding-left: 1.5rem !important;
     padding-right: 1.5rem !important;
     max-width: 100% !important;
+}
+/* Streamlit fügt manchmal noch einen leeren gap-div ein */
+[data-testid="stAppViewBlockContainer"] > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1062,6 +1075,7 @@ def _render_tabelle():
     td_r = td + "text-align:right; font-variant-numeric:tabular-nums;"
 
     rows_html = ""
+    rows_html_embed = ""
     for _, r in df_roh.sort_values("Gemeinde").iterrows():
         jahre = str(int(r["Jahre_bis_Limit"])) if pd.notna(r["Jahre_bis_Limit"]) else "—"
         wrate = f"{r['Wachstumsrate_Pct']:.2f} %" if pd.notna(r["Wachstumsrate_Pct"]) else "—"
@@ -1077,6 +1091,16 @@ def _render_tabelle():
             f"<td style='{td_r}'>{jahre}</td>"
             f"</tr>"
         )
+        # Embed: nur 5 Spalten (Gemeinde + 4 Kernspalten)
+        rows_html_embed += (
+            f"<tr>"
+            f"<td style='{td}'>{r['Gemeinde']}</td>"
+            f"<td style='{td_r}'>{tsd(r['Bev_2024'])}</td>"
+            f"<td style='{td_r}'>{wrate}</td>"
+            f"<td style='{td_r}'>{tsd(r['Kontingent'])}</td>"
+            f"<td style='{td}'>{r['Limit_Jahr']}</td>"
+            f"</tr>"
+        )
 
     _th_sort = (
         "padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; "
@@ -1087,35 +1111,26 @@ def _render_tabelle():
     _th_sort_r = _th_sort + "text-align:right;"
 
     if _embed:
-        # Embed: Tabelle direkt im Streamlit-DOM → sticky thead + horizontaler Scroll
+        # Embed: 5 Spalten, direkt im Streamlit-DOM → sticky thead funktioniert
         st.markdown(f"""
 <style>
-/* Sticky-Header relativ zum Streamlit-Scroll-Container */
-#svp-tbl-wrap {{ overflow-x: auto; }}
-#svp-tbl thead th {{
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}}
+#svp-tbl thead th {{ position: sticky; top: 0; z-index: 10; }}
 </style>
 <div id="svp-tbl-wrap" style="border:1px solid #d2d2d7; border-radius:10px;
-     overflow-x:auto; overflow-y:visible; background:#fff;">
+     overflow:hidden; background:#fff;">
   <table id="svp-tbl" style="width:100%; border-collapse:collapse;
       font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
       background:#fff;">
     <thead>
       <tr>
         <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕</th>
-        <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2014 ↕</th>
-        <th style="{_th_sort_r}" data-col="2" data-type="num">Bev. 2024 ↕</th>
+        <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2024 ↕</th>
+        <th style="{_th_sort_r}" data-col="2" data-type="num">Wachstum p.a. ↕</th>
         <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ↕</th>
-        <th style="{_th_sort_r}" data-col="4" data-type="num">Verf. Wachstum ↕</th>
-        <th style="{_th_sort_r}" data-col="5" data-type="num">Wachstum p.a. ↕</th>
-        <th style="{_th_sort}" data-col="6" data-type="str">Limit erreicht ↕</th>
-        <th style="{_th_sort_r}" data-col="7" data-type="num">Jahre bis Limit ↕</th>
+        <th style="{_th_sort}" data-col="4" data-type="str">Limit erreicht ↕</th>
       </tr>
     </thead>
-    <tbody>{rows_html}</tbody>
+    <tbody>{rows_html_embed}</tbody>
   </table>
 </div>
 """, unsafe_allow_html=True)
