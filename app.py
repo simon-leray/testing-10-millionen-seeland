@@ -1,5 +1,6 @@
 import colorsys
 import concurrent.futures
+import json
 import re
 
 import pandas as pd
@@ -469,8 +470,24 @@ api_verfuegbar  = len(geometrien) >= 30
 if "selected_gemeinde" not in st.session_state:
     st.session_state.selected_gemeinde = None
 
+with open("ajour-logo.json") as _f:
+    _lottie_data = json.dumps(json.load(_f))
+
 
 # ── Header ────────────────────────────────────────────────────────────────────
+st.components.v1.html(f"""
+<div id="ajour-logo" style="width:330px; height:60px;"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+<script>
+  lottie.loadAnimation({{
+    container: document.getElementById('ajour-logo'),
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    animationData: {_lottie_data}
+  }});
+</script>
+""", height=68)
 st.title("10-Millionen-Initiative — Wachstumspotenzial Seeland/Biel")
 st.markdown(
     "Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln. "
