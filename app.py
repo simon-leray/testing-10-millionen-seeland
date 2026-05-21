@@ -719,6 +719,129 @@ def _render_karte():
           </div>
         </div>""", unsafe_allow_html=True)
 
+    if _embed:
+        # ── Embed: nur Karte, volle Breite ────────────────────────────────────
+        if df.empty:
+            st.warning("Keine Gemeinden entsprechen den aktuellen Filtereinstellungen.")
+        elif not api_verfuegbar:
+            st.info("Gemeindegrenzen konnten nicht geladen werden — Darstellung als Punkte.")
+            df["farbe"]  = df.apply(lambda r: zeitfarbe(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
+            max_bev      = df_roh["Bev_2024"].max()
+            df["radius"] = (df["Bev_2024"] / max_bev * 2200 + 300).round(0)
+            layer = pdk.Layer("ScatterplotLayer", data=df,
+                              get_position="[lon, lat]", get_fill_color="farbe",
+                              get_radius="radius", pickable=True, opacity=0.85)
+            view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
+            st.pydeck_chart(
+                pdk.Deck(layers=[layer], initial_view_state=view,
+                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                         views=[pdk.View(type="MapView", controller=False)]),
+                use_container_width=True,
+            )
+        else:
+            sel_name = st.session_state.selected_gemeinde
+            df_map = df.copy()
+            if sel_name and sel_name not in df_map["Gemeinde"].values:
+                sel_row = df_roh[df_roh["Gemeinde"] == sel_name]
+                if not sel_row.empty:
+                    df_map = pd.concat([df_map, sel_row], ignore_index=True)
+            features = erstelle_polygon_features(df_map, geometrien)
+            hl_features = []
+            if sel_name and sel_name in geometrien:
+                for ring in geometrien[sel_name]:
+                    hl_features.append({"polygon": [ring]})
+            if not features:
+                st.warning("Keine Polygondaten verfügbar. Bitte Seite neu laden.")
+            else:
+                tooltip = {
+                    "html": """
+                    <div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",
+                                Arial,sans-serif; font-size:13px; min-width:220px;
+                                color:#1d1d1f'>
+                      <div style='font-size:15px; font-weight:600;
+                                  margin-bottom:8px'>{Gemeinde} <span
+                        style='font-weight:400; color:#6e6e73'>({Kt})</span></div>
+                      <div style='border-top:1px solid #d2d2d7; margin-bottom:8px'></div>
+                      <table style='width:100%; border-collapse:collapse;
+                                    font-size:12.5px; line-height:1.7'>
+                        <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
+                            <td style='text-align:right; font-weight:500'>{Bev_2014}</td></tr>
+                        <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
+                            <td style='text-align:right; font-weight:500'>{Bev_2024}</td></tr>
+                        <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
+                            <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
+                        <tr><td style='color:#6e6e73'>Kontingent bei 10-Millionen-Schweiz</td>
+                            <td style='text-align:right; font-weight:500'>{Kontingent}</td></tr>
+                        <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
+                            <td style='text-align:right; font-weight:500'>{Verf_Wachstum}</td></tr>
+                        <tr><td style='color:#6e6e73'>Limite erreicht</td>
+                            <td style='text-align:right; font-weight:500'>{Limit_Jahr}</td></tr>
+                      </table>
+                    </div>""",
+                    "style": {
+                        "backgroundColor": "white",
+                        "border": "1px solid #d2d2d7",
+                        "borderRadius": "10px",
+                        "padding": "12px 14px",
+                        "boxShadow": "0 4px 16px rgba(0,0,0,0.10)",
+                    },
+                }
+                view_state = pdk.ViewState(
+                    latitude=47.09, longitude=7.24, zoom=9.5, pitch=0,
+                    transition_duration=800,
+                )
+                layer = pdk.Layer(
+                    "PolygonLayer", data=features,
+                    get_polygon="polygon",
+                    get_fill_color="color",
+                    get_line_color=[180, 180, 180, 180],
+                    line_width_min_pixels=1,
+                    pickable=True, filled=True, stroked=True, opacity=0.85,
+                )
+                hl_layer = pdk.Layer(
+                    "PolygonLayer", data=hl_features,
+                    get_polygon="polygon",
+                    get_fill_color=[0, 0, 0, 0],
+                    get_line_color=[30, 30, 30, 255],
+                    line_width_min_pixels=3,
+                    filled=True, stroked=True,
+                )
+                map_event = st.pydeck_chart(
+                    pdk.Deck(
+                        layers=[layer, hl_layer],
+                        initial_view_state=view_state,
+                        tooltip=tooltip,
+                        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                        views=[pdk.View(type="MapView", controller=False)],
+                    ),
+                    use_container_width=True,
+                    key="hauptkarte_embed",
+                    on_select="rerun",
+                    selection_mode="single-object",
+                )
+                if hasattr(map_event, "selection") and map_event.selection.objects:
+                    _new_sel = None
+                    for _ol in map_event.selection.objects.values():
+                        if _ol:
+                            _new_sel = _ol[0].get("Gemeinde")
+                            break
+                    if _new_sel and _new_sel != st.session_state.map_sel:
+                        st.session_state.map_sel  = _new_sel
+                        st.session_state.selected_gemeinde = _new_sel
+                        st.rerun()
+                elif not (hasattr(map_event, "selection") and map_event.selection.objects):
+                    st.session_state.map_sel = None
+        if not df.empty:
+            st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;margin:8px 0 4px;'>
+  <span style='font-size:0.72rem;color:#6e6e73;white-space:nowrap'>Limit bald erreicht</span>
+  <div style='flex:1;height:6px;border-radius:3px;
+              background:linear-gradient(to right,#be1717 0%,#bebe17 50%,#17be17 100%)'></div>
+  <span style='font-size:0.72rem;color:#6e6e73;white-space:nowrap'>Limit weit entfernt</span>
+</div>""", unsafe_allow_html=True)
+        return  # Embed: fertig, kein weiterer Inhalt
+
+    # ── Vollbild: 2-Spalten-Layout ─────────────────────────────────────────────
     col_map, col_desc = st.columns([2, 1], gap="large")
 
     with col_map:
@@ -875,49 +998,57 @@ def _render_karte():
 
 
 def _render_tabelle():
-    # ── Regionale Übersicht ──────────────────────────────────────────────────
-    st.markdown(
-        "<div style='font-size:0.7rem; font-weight:600; text-transform:uppercase; "
-        "letter-spacing:0.07em; color:#6e6e73; margin-bottom:0.6rem;'>"
-        "Das ajour-Land im Überblick</div>",
-        unsafe_allow_html=True,
-    )
+    if _embed:
+        # ── Embed: nur Header, keine Kacheln ──────────────────────────────────
+        st.markdown(
+            "<h3 style='font-size:1.1rem; font-weight:600; color:#1d1d1f; "
+            "margin:0 0 0.75rem;'>Das ajour-Land im Überblick</h3>",
+            unsafe_allow_html=True,
+        )
+    else:
+        # ── Vollbild: Kacheln + Divider ───────────────────────────────────────
+        st.markdown(
+            "<div style='font-size:0.7rem; font-weight:600; text-transform:uppercase; "
+            "letter-spacing:0.07em; color:#6e6e73; margin-bottom:0.6rem;'>"
+            "Das ajour-Land im Überblick</div>",
+            unsafe_allow_html=True,
+        )
 
-    _bev14 = int(df_roh["Bev_2014"].sum())
-    _bev24 = int(df_roh["Bev_2024"].sum())
-    _kont  = int(df_roh["Kontingent"].sum())
-    _verf  = int(df_roh["Verf_Wachstum"].sum())
-    _cagr  = ((_bev24 / _bev14) ** (1 / 10) - 1) * 100
-    _limit_median = int(
-        pd.to_numeric(
-            df_roh.loc[~df_roh["Schrumpfend"], "Limit_Jahr"], errors="coerce"
-        ).dropna().median()
-    )
+        _bev14 = int(df_roh["Bev_2014"].sum())
+        _bev24 = int(df_roh["Bev_2024"].sum())
+        _kont  = int(df_roh["Kontingent"].sum())
+        _verf  = int(df_roh["Verf_Wachstum"].sum())
+        _cagr  = ((_bev24 / _bev14) ** (1 / 10) - 1) * 100
+        _limit_median = int(
+            pd.to_numeric(
+                df_roh.loc[~df_roh["Schrumpfend"], "Limit_Jahr"], errors="coerce"
+            ).dropna().median()
+        )
 
-    def _ovcard(col, label, value):
-        col.markdown(f"""
-        <div style='background:#f5f5f7; border-radius:10px;
-                    padding:0.9rem 1rem 0.8rem;'>
-          <div style='font-size:0.65rem; font-weight:600; text-transform:uppercase;
-                      letter-spacing:0.06em; color:#6e6e73; margin-bottom:0.25rem'>
-            {label}</div>
-          <div style='font-size:1.25rem; font-weight:600; color:#1d1d1f;
-                      letter-spacing:-0.3px; white-space:nowrap'>{value}</div>
-        </div>""", unsafe_allow_html=True)
+        def _ovcard(col, label, value):
+            col.markdown(f"""
+            <div style='background:#f5f5f7; border-radius:10px;
+                        padding:0.9rem 1rem 0.8rem;'>
+              <div style='font-size:0.65rem; font-weight:600; text-transform:uppercase;
+                          letter-spacing:0.06em; color:#6e6e73; margin-bottom:0.25rem'>
+                {label}</div>
+              <div style='font-size:1.25rem; font-weight:600; color:#1d1d1f;
+                          letter-spacing:-0.3px; white-space:nowrap'>{value}</div>
+            </div>""", unsafe_allow_html=True)
 
-    ov1, ov2, ov3 = st.columns(3, gap="medium")
-    _ovcard(ov1, "Bevölkerung 2014", tsd(_bev14))
-    _ovcard(ov2, "Bevölkerung 2024", tsd(_bev24))
-    _ovcard(ov3, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
+        ov1, ov2, ov3 = st.columns(3, gap="medium")
+        _ovcard(ov1, "Bevölkerung 2014", tsd(_bev14))
+        _ovcard(ov2, "Bevölkerung 2024", tsd(_bev24))
+        _ovcard(ov3, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
 
-    st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
-    ov4, ov5, ov6 = st.columns(3, gap="medium")
-    _ovcard(ov4, 'Kontingent bei Annahme\n«Keine 10-Millionen-Schweiz»', tsd(_kont))
-    _ovcard(ov5, "Verfügbares Wachstum", tsd(_verf))
-    _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
+        ov4, ov5, ov6 = st.columns(3, gap="medium")
+        _ovcard(ov4, 'Kontingent bei Annahme\n«Keine 10-Millionen-Schweiz»', tsd(_kont))
+        _ovcard(ov5, "Verfügbares Wachstum", tsd(_verf))
+        _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
 
-    st.divider()
+        st.divider()
 
     th = ("padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; "
           "text-transform:uppercase; letter-spacing:0.05em; color:#6e6e73; "
@@ -943,9 +1074,10 @@ def _render_tabelle():
             f"</tr>"
         )
 
+    _tbl_height = "calc(100vh - 80px)" if _embed else "600px"
     st.markdown(f"""
     <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
-                overflow:hidden; background:#ffffff; max-height:600px; overflow-y:auto;">
+                overflow:hidden; background:#ffffff; max-height:{_tbl_height}; overflow-y:auto;">
       <table style="width:100%; border-collapse:collapse;
                     font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
                     background:#ffffff;">
