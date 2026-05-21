@@ -321,24 +321,18 @@ label[data-testid="stWidgetLabel"] > div > p,
 
 # ── Embed-spezifisches CSS (Sidebar, Header, Padding komplett entfernen) ──────
 if _embed:
-    _no_scroll_css = (
-        "html,body,[data-testid='stAppViewContainer'],"
-        "section[data-testid='stMain'],.main{"
-        "overflow:hidden!important;height:100vh!important}"
-    ) if _view == "tabelle" else ""
-    st.markdown(f"""
+    st.markdown("""
 <style>
 [data-testid="stSidebar"],
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
-button[kind="header"] {{ display: none !important; }}
-.block-container {{
+button[kind="header"] { display: none !important; }
+.block-container {
     padding-top: 0.5rem !important;
     padding-left: 1.5rem !important;
     padding-right: 1.5rem !important;
     max-width: 100% !important;
-}}
-{_no_scroll_css}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -825,7 +819,13 @@ def _render_karte():
                         initial_view_state=view_state,
                         tooltip=tooltip,
                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                        views=[pdk.View(type="MapView", controller=True)],
+                        views=[pdk.View(type="MapView", controller={
+                            "scrollZoom": True,
+                            "doubleClickZoom": True,
+                            "dragPan": False,
+                            "dragRotate": False,
+                            "touchRotate": False,
+                        })],
                     ),
                     use_container_width=True,
                     key="hauptkarte_embed",
@@ -1095,12 +1095,10 @@ def _render_tabelle():
     )
     _th_sort_r = _th_sort + "text-align:right;"
 
-    # Volle Tabellenhöhe berechnen: Zeilen × Zeilenhöhe + Kopf + Titel-Puffer
-    _n_rows      = len(df_roh)
-    _embed_h     = _n_rows * 39 + 46 + 80   # 39px/Zeile, 46px Header, 80px Titel
-
-    _table_html = f"""
-    <div id="tbl-wrap" style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
+    if _embed:
+        # Embed: volle Tabelle ohne internen Scroll, Seite wächst natürlich mit
+        st.markdown(f"""
+    <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
                 overflow:hidden; background:#ffffff;">
       <table id="sort-tbl" style="width:100%; border-collapse:collapse;
                     font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
@@ -1120,41 +1118,49 @@ def _render_tabelle():
         <tbody>{rows_html}</tbody>
       </table>
     </div>
-    <script>
-    (function(){{
-      var tbl = document.getElementById('sort-tbl');
-      var asc = {{}};
-      tbl.querySelectorAll('thead th').forEach(function(th){{
-        th.addEventListener('click', function(){{
-          var col = +this.dataset.col;
-          var type = this.dataset.type;
-          asc[col] = !asc[col];
-          var tbody = tbl.querySelector('tbody');
-          var rows = Array.from(tbody.querySelectorAll('tr'));
-          rows.sort(function(a, b){{
-            var av = a.cells[col].textContent.trim();
-            var bv = b.cells[col].textContent.trim();
-            if(type === 'num'){{
-              av = parseFloat(av.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
-              bv = parseFloat(bv.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
-            }}
-            if(av < bv) return asc[col] ? -1 : 1;
-            if(av > bv) return asc[col] ? 1 : -1;
-            return 0;
-          }});
-          rows.forEach(function(r){{ tbody.appendChild(r); }});
-          tbl.querySelectorAll('thead th').forEach(function(h){{
-            h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
-          }});
-          this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col] ? ' ↑' : ' ↓');
+    """, unsafe_allow_html=True)
+        # Sort-JS via components (st.markdown filtert <script> raus)
+        _n_rows  = len(df_roh)
+        _sort_h  = _n_rows * 39 + 46 + 80
+        st.components.v1.html(f"""
+<script>
+(function(){{
+  function init(){{
+    var tbl = window.parent.document.getElementById('sort-tbl');
+    if(!tbl){{ setTimeout(init, 100); return; }}
+    var asc = {{}};
+    tbl.querySelectorAll('thead th').forEach(function(th){{
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', function(){{
+        var col = +this.dataset.col;
+        var type = this.dataset.type;
+        asc[col] = !asc[col];
+        var tbody = tbl.querySelector('tbody');
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function(a,b){{
+          var av = a.cells[col].textContent.trim();
+          var bv = b.cells[col].textContent.trim();
+          if(type==='num'){{
+            av = parseFloat(av.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+            bv = parseFloat(bv.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+          }}
+          if(av<bv) return asc[col]?-1:1;
+          if(av>bv) return asc[col]?1:-1;
+          return 0;
         }});
+        rows.forEach(function(r){{ tbody.appendChild(r); }});
+        tbl.querySelectorAll('thead th').forEach(function(h){{
+          h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
+        }});
+        this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col]?' ↑':' ↓');
       }});
-    }})();
-    </script>
-    """
-
-    if _embed:
-        st.components.v1.html(_table_html, height=_embed_h, scrolling=False)
+    }});
+  }}
+  init();
+}})();
+</script>
+""", height=0)
+        return
     else:
         st.markdown(f"""
     <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
