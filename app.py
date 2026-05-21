@@ -717,7 +717,7 @@ with tab_tabelle:
     st.divider()
 
     df_anz = df_roh[[
-        "Gemeinde", "Kt", "Region",
+        "Gemeinde",
         "Bev_2014", "Bev_2024", "Kontingent",
         "Verf_Wachstum", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_bis_Limit",
     ]].copy()
@@ -731,24 +731,22 @@ with tab_tabelle:
 
     st.dataframe(
         df_anz[[
-            "Gemeinde", "Kt", "Region",
+            "Gemeinde",
             "Bev_2014_fmt", "Bev_2024_fmt", "Kont_fmt",
             "Wachst_fmt", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_Anzeige",
         ]],
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Gemeinde":        st.column_config.TextColumn("Gemeinde"),
-            "Kt":              st.column_config.TextColumn("Kt.", width="small"),
-            "Region":          st.column_config.TextColumn("Region / VK"),
-            "Bev_2014_fmt":    st.column_config.TextColumn("Bev. 2014"),
-            "Bev_2024_fmt":    st.column_config.TextColumn("Bev. 2024"),
-            "Kont_fmt":        st.column_config.TextColumn("Kontingent"),
-            "Wachst_fmt":      st.column_config.TextColumn("Verf. Wachstum"),
+            "Gemeinde":          st.column_config.TextColumn("Gemeinde"),
+            "Bev_2014_fmt":      st.column_config.TextColumn("Bev. 2014"),
+            "Bev_2024_fmt":      st.column_config.TextColumn("Bev. 2024"),
+            "Kont_fmt":          st.column_config.TextColumn("Kontingent"),
+            "Wachst_fmt":        st.column_config.TextColumn("Verf. Wachstum"),
             "Wachstumsrate_Pct": st.column_config.NumberColumn(
                 "Wachstumsrate p.a. (%)", format="%.2f %%"),
-            "Limit_Jahr":      st.column_config.TextColumn("Limit erreicht"),
-            "Jahre_Anzeige":   st.column_config.TextColumn("Jahre bis Limit"),
+            "Limit_Jahr":        st.column_config.TextColumn("Limit erreicht"),
+            "Jahre_Anzeige":     st.column_config.TextColumn("Jahre bis Limit"),
         },
         height=600,
     )
