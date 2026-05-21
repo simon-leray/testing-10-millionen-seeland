@@ -34,9 +34,22 @@ html, body, [class*="css"] {
 /* App background */
 .stApp { background-color: #ffffff; }
 
-/* Main content area */
+/* Fixed logo header — erzeugt via JS in parent frame */
+#ajour-logo-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 72px;
+    background: #ffffff;
+    border-bottom: 1px solid #d2d2d7;
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Main content area — Platz für den fixierten Header */
 .block-container {
-    padding-top: 3rem;
+    padding-top: 5.5rem;
     padding-bottom: 3rem;
 }
 
@@ -71,6 +84,12 @@ hr {
 [data-testid="stSidebar"] {
     background-color: #f5f5f7 !important;
     border-right: 1px solid #d2d2d7;
+    width: 280px !important;
+    min-width: 280px !important;
+}
+/* Sidebar-Inhalt: Platz für fixierten Header */
+[data-testid="stSidebarContent"] {
+    padding-top: 84px !important;
 }
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
@@ -475,19 +494,38 @@ with open("ajour-logo.json") as _f:
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
+# Logo via window.parent in einen fixierten Vollbreiten-Header rendern,
+# damit es über Sidebar + Content mittig auf dem Viewport sitzt.
 st.components.v1.html(f"""
-<div id="ajour-logo" style="width:330px; height:60px;"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
+(function () {{
+  var P = window.parent.document;
+
+  // Bestehenden Header entfernen (bei Streamlit-Rerun)
+  var old = P.getElementById('ajour-logo-header');
+  if (old) old.remove();
+
+  // Fixierten Header erzeugen
+  var header = P.createElement('div');
+  header.id = 'ajour-logo-header';
+
+  var logoDiv = P.createElement('div');
+  logoDiv.style.cssText = 'width:396px;height:72px;';
+  header.appendChild(logoDiv);
+  P.body.appendChild(header);
+
+  // Lottie in den Parent-Frame-Container rendern
   lottie.loadAnimation({{
-    container: document.getElementById('ajour-logo'),
+    container: logoDiv,
     renderer: 'svg',
     loop: true,
     autoplay: true,
     animationData: {_lottie_data}
   }});
+}})();
 </script>
-""", height=68)
+""", height=1)
 st.title("10-Millionen-Initiative — Wachstumspotenzial Seeland/Biel")
 st.markdown(
     "Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln. "
