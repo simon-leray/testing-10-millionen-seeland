@@ -321,24 +321,24 @@ label[data-testid="stWidgetLabel"] > div > p,
 
 # ── Embed-spezifisches CSS (Sidebar, Header, Padding komplett entfernen) ──────
 if _embed:
-    st.markdown("""
+    _no_scroll_css = (
+        "html,body,[data-testid='stAppViewContainer'],"
+        "section[data-testid='stMain'],.main{"
+        "overflow:hidden!important;height:100vh!important}"
+    ) if _view == "tabelle" else ""
+    st.markdown(f"""
 <style>
 [data-testid="stSidebar"],
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
-button[kind="header"] { display: none !important; }
-.block-container {
+button[kind="header"] {{ display: none !important; }}
+.block-container {{
     padding-top: 0.5rem !important;
     padding-left: 1.5rem !important;
     padding-right: 1.5rem !important;
     max-width: 100% !important;
-}
-/* Seite selbst nicht scrollbar — nur Tabellencontainer scrollt */
-html, body, [data-testid="stAppViewContainer"],
-section[data-testid="stMain"], .main {
-    overflow: hidden !important;
-    height: 100vh !important;
-}
+}}
+{_no_scroll_css}
 </style>
 """, unsafe_allow_html=True)
 
@@ -800,6 +800,7 @@ def _render_karte():
                 }
                 view_state = pdk.ViewState(
                     latitude=47.09, longitude=7.24, zoom=9.5, pitch=0,
+                    min_zoom=8.5, max_zoom=14,
                     transition_duration=800,
                 )
                 layer = pdk.Layer(
@@ -824,7 +825,7 @@ def _render_karte():
                         initial_view_state=view_state,
                         tooltip=tooltip,
                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                        views=[pdk.View(type="MapView", controller=False)],
+                        views=[pdk.View(type="MapView", controller=True)],
                     ),
                     use_container_width=True,
                     key="hauptkarte_embed",
@@ -1094,13 +1095,17 @@ def _render_tabelle():
     )
     _th_sort_r = _th_sort + "text-align:right;"
 
+    # Volle Tabellenhöhe berechnen: Zeilen × Zeilenhöhe + Kopf + Titel-Puffer
+    _n_rows      = len(df_roh)
+    _embed_h     = _n_rows * 39 + 46 + 80   # 39px/Zeile, 46px Header, 80px Titel
+
     _table_html = f"""
     <div id="tbl-wrap" style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
-                overflow:hidden; background:#ffffff; overflow-y:auto;">
+                overflow:hidden; background:#ffffff;">
       <table id="sort-tbl" style="width:100%; border-collapse:collapse;
                     font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
                     background:#ffffff;">
-        <thead style="position:sticky; top:0; z-index:1;">
+        <thead>
           <tr>
             <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕</th>
             <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2014 ↕</th>
@@ -1118,15 +1123,6 @@ def _render_tabelle():
     <script>
     (function(){{
       var tbl = document.getElementById('sort-tbl');
-      var wrap = document.getElementById('tbl-wrap');
-      // Höhe: Wrapper füllt Restfläche nach Header
-      function setH(){{
-        var top = wrap.getBoundingClientRect().top;
-        var vh = window.innerHeight;
-        wrap.style.height = Math.max(100, vh - top - 8) + 'px';
-      }}
-      setH(); window.addEventListener('resize', setH);
-
       var asc = {{}};
       tbl.querySelectorAll('thead th').forEach(function(th){{
         th.addEventListener('click', function(){{
@@ -1147,7 +1143,6 @@ def _render_tabelle():
             return 0;
           }});
           rows.forEach(function(r){{ tbody.appendChild(r); }});
-          // Pfeil-Indikator
           tbl.querySelectorAll('thead th').forEach(function(h){{
             h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
           }});
@@ -1159,7 +1154,7 @@ def _render_tabelle():
     """
 
     if _embed:
-        st.components.v1.html(_table_html, height=800, scrolling=False)
+        st.components.v1.html(_table_html, height=_embed_h, scrolling=False)
     else:
         st.markdown(f"""
     <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
