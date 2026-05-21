@@ -484,31 +484,23 @@ st.divider()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("Filter")
-
-    suche = st.text_input("Gemeinde", placeholder="Name suchen …")
-
     if not api_verfuegbar:
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
 
-    # Slot für Details — visuell direkt unter dem Suchfeld,
+    # Slot für Details — visuell ganz oben,
     # wird erst nach der Gemeindeliste befüllt (session_state ist dann aktuell)
     details_slot = st.empty()
 
     st.divider()
     st.header("Gemeinden")
 
-    gemeinden_iter = df_roh.sort_values("Gemeinde")
-    if suche:
-        gemeinden_iter = gemeinden_iter[
-            gemeinden_iter["Gemeinde"].str.contains(suche, case=False, na=False)
-        ]
-    for _, row in gemeinden_iter.iterrows():
+    for _, row in df_roh.sort_values("Gemeinde").iterrows():
         name        = row["Gemeinde"]
         is_selected = st.session_state.selected_gemeinde == name
         label       = f"› {name}" if is_selected else name
         if st.button(label, key=f"gem_{name}", use_container_width=True):
             st.session_state.selected_gemeinde = None if is_selected else name
+            st.rerun()
 
     # Details-Panel in den Slot oben schreiben
     sel = st.session_state.selected_gemeinde
@@ -523,7 +515,8 @@ with st.sidebar:
                 st.markdown(f"""
                 <div style='font-family:-apple-system,BlinkMacSystemFont,
                             "Helvetica Neue",Arial,sans-serif;
-                            margin-top:6px;'>
+                            margin-top:6px; position:sticky; top:0;
+                            z-index:100; background:#f5f5f7; padding-bottom:8px;'>
                   <div style='font-size:0.8125rem; font-weight:600;
                               color:#1d1d1f; margin-bottom:6px'>{sel}</div>
                   <div style='background:#eaeaec; border-radius:8px;
@@ -551,10 +544,6 @@ with st.sidebar:
 
 # ── Filter ────────────────────────────────────────────────────────────────────
 df = df_roh.copy()
-if suche:
-    df = df[df["Gemeinde"].str.contains(suche, case=False, na=False)]
-
-df = df.copy()
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -636,35 +625,10 @@ with tab_karte:
                 },
             }
 
-            # Kamera: Sidebar-Auswahl hat Vorrang, dann Suche, dann Standardansicht
-            zoom_name  = None
-            zoom_level = 10
-
-            if st.session_state.selected_gemeinde:
-                zoom_name  = st.session_state.selected_gemeinde
-                zoom_level = 13
-            elif suche and not df.empty:
-                zoom_name  = df.iloc[0]["Gemeinde"]
-                zoom_level = 13 if len(df) == 1 else 11
-
-            if zoom_name:
-                if zoom_name in geometrien:
-                    clat, clon = polygon_zentrum(geometrien[zoom_name])
-                    zoom_level = berechne_zoom(geometrien[zoom_name])
-                else:
-                    zrow = df_roh[df_roh["Gemeinde"] == zoom_name]
-                    clat = zrow.iloc[0]["lat"] if not zrow.empty else 47.09
-                    clon = zrow.iloc[0]["lon"] if not zrow.empty else 7.24
-                view_state = pdk.ViewState(
-                    latitude=clat, longitude=clon,
-                    zoom=zoom_level, pitch=0,
-                    transition_duration=1200,
-                )
-            else:
-                view_state = pdk.ViewState(
-                    latitude=47.09, longitude=7.24, zoom=10, pitch=0,
-                    transition_duration=800,
-                )
+            view_state = pdk.ViewState(
+                latitude=47.09, longitude=7.24, zoom=10, pitch=0,
+                transition_duration=800,
+            )
 
             layer = pdk.Layer(
                 "PolygonLayer", data=features,
@@ -696,12 +660,12 @@ with tab_karte:
     st.markdown("""
     <div style='display:flex; align-items:center; gap:10px; margin:14px 0 6px;'>
       <span style='font-size:0.72rem; color:#6e6e73;
-                   white-space:nowrap'>Limit bald</span>
+                   white-space:nowrap'>Limit bald erreicht</span>
       <div style='flex:1; height:6px; border-radius:3px;
                   background:linear-gradient(to right,
                     #be1717 0%, #bebe17 50%, #17be17 100%)'></div>
       <span style='font-size:0.72rem; color:#6e6e73;
-                   white-space:nowrap'>Langfristig / schrumpfend</span>
+                   white-space:nowrap'>Limit weit entfernt</span>
     </div>
     """, unsafe_allow_html=True)
 
