@@ -176,7 +176,12 @@ label[data-testid="stWidgetLabel"] > div > p,
     border-bottom: 1px solid #d2d2d7;
     background: transparent;
 }
-.stTabs [data-baseweb="tab"] {
+.stTabs [data-baseweb="tab"],
+.stTabs [data-baseweb="tab"] span,
+.stTabs [role="tab"],
+.stTabs [role="tab"] span,
+[data-baseweb="tab-list"] [data-baseweb="tab"],
+[data-baseweb="tab-list"] [data-baseweb="tab"] span {
     font-size: 1.15rem !important;
     font-weight: 500;
     color: #6e6e73;
@@ -184,6 +189,14 @@ label[data-testid="stWidgetLabel"] > div > p,
     border-radius: 0;
     background: transparent;
     border-bottom: none !important;
+}
+
+/* Hide deck.gl zoom/navigation controls */
+[data-testid="stDeckGlJsonChart"] .mapboxgl-ctrl-group,
+[data-testid="stDeckGlJsonChart"] .maplibregl-ctrl-group,
+[data-testid="stDeckGlJsonChart"] [class*="mapboxgl-ctrl"],
+[data-testid="stDeckGlJsonChart"] [class*="maplibregl-ctrl"] {
+    display: none !important;
 }
 .stTabs [data-baseweb="tab"]:hover { color: #1d1d1f; }
 .stTabs [aria-selected="true"] {
@@ -556,6 +569,8 @@ api_verfuegbar  = len(geometrien) >= 30
 # ── Session State ─────────────────────────────────────────────────────────────
 if "selected_gemeinde" not in st.session_state:
     st.session_state.selected_gemeinde = None
+if "map_sel" not in st.session_state:
+    st.session_state.map_sel = None
 
 with open("ajour-logo.json") as _f:
     _lottie_data = json.dumps(json.load(_f))
@@ -564,8 +579,8 @@ with open("ajour-logo.json") as _f:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
-  <h1 style='font-size:4.6rem; font-weight:900; letter-spacing:-2.5px;
-             color:#1d1d1f; margin:0 0 0.25rem; line-height:1.0;'>
+  <h1 style='font-size:6rem; font-weight:900; letter-spacing:-3px;
+             color:#1d1d1f; margin:0 0 0.25rem; line-height:0.95;'>
     Initiative «Keine 10-Millionen-Schweiz»
   </h1>
   <div style='font-size:1.55rem; font-weight:500; color:#3a3a3c;
@@ -777,7 +792,7 @@ with tab_karte:
                     line_width_min_pixels=3,
                     filled=True, stroked=True,
                 )
-                st.pydeck_chart(
+                map_event = st.pydeck_chart(
                     pdk.Deck(
                         layers=[layer, hl_layer],
                         initial_view_state=view_state,
@@ -787,7 +802,22 @@ with tab_karte:
                     ),
                     use_container_width=True,
                     key="hauptkarte",
+                    on_select="rerun",
+                    selection_mode="single-object",
                 )
+                # Map click → select Gemeinde in sidebar
+                if hasattr(map_event, "selection") and map_event.selection.objects:
+                    _new_sel = None
+                    for _ol in map_event.selection.objects.values():
+                        if _ol:
+                            _new_sel = _ol[0].get("Gemeinde")
+                            break
+                    if _new_sel and _new_sel != st.session_state.map_sel:
+                        st.session_state.map_sel  = _new_sel
+                        st.session_state.selected_gemeinde = _new_sel
+                        st.rerun()
+                elif not (hasattr(map_event, "selection") and map_event.selection.objects):
+                    st.session_state.map_sel = None
 
         # Farbskala — nur so breit wie die Karte
         if not df.empty:
@@ -860,13 +890,13 @@ with tab_tabelle:
     ov1, ov2, ov3 = st.columns(3, gap="medium")
     _ovcard(ov1, "Bevölkerung 2014", tsd(_bev14))
     _ovcard(ov2, "Bevölkerung 2024", tsd(_bev24))
-    _ovcard(ov3, "Kontingent total", tsd(_kont))
+    _ovcard(ov3, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
 
     st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
     ov4, ov5, ov6 = st.columns(3, gap="medium")
-    _ovcard(ov4, "Verfügbares Wachstum", tsd(_verf))
-    _ovcard(ov5, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
+    _ovcard(ov4, 'Kontingent bei Annahme\n"Keine 10-Millionen-Schweiz"', tsd(_kont))
+    _ovcard(ov5, "Verfügbares Wachstum", tsd(_verf))
     _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
 
     st.divider()
@@ -1063,59 +1093,98 @@ st.components.v1.html("""
                 });
             }
 
-            // ── Map lock — overlay on the canvas itself ───────────────────
+            // ── Map lock — overlay blocks drag+zoom, forwards clicks ─────
             doc.querySelectorAll('[data-testid="stDeckGlJsonChart"] canvas').forEach(function(canvas) {
                 if (canvas._deckLocked) return;
                 canvas._deckLocked = true;
                 var par = canvas.parentElement;
                 if (!par) return;
-                if (getComputedStyle(par).position === 'static') {
+                if (getComputedStyle(par).position === 'static')
                     par.style.setProperty('position','relative','important');
-                }
+
                 var ol = doc.createElement('div');
-                ol.setAttribute('data-deck-overlay','1');
                 ol.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;' +
                                    'z-index:9999;cursor:default;background:transparent;';
 
-                ol.addEventListener('wheel', function(e) {
-                    e.preventDefault(); e.stopPropagation();
-                }, {passive:false});
-                ol.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
-                ol.addEventListener('mousedown',   function(e) { e.stopPropagation(); });
-                ol.addEventListener('dblclick',    function(e) { e.preventDefault(); e.stopPropagation(); });
-                ol.addEventListener('touchstart', function(e) { e.preventDefault(); e.stopPropagation(); }, {passive:false});
-                ol.addEventListener('touchmove',  function(e) { e.preventDefault(); e.stopPropagation(); }, {passive:false});
+                // Helpers
+                function below(e) {
+                    ol.style.pointerEvents='none';
+                    var el=doc.elementFromPoint(e.clientX,e.clientY);
+                    ol.style.pointerEvents='';
+                    return (el && el!==ol) ? el : null;
+                }
+                function fwd(tgt,type,e,extra) {
+                    try{ tgt.dispatchEvent(new PointerEvent(type, Object.assign({
+                        bubbles:true,cancelable:true,
+                        clientX:e.clientX,clientY:e.clientY,
+                        screenX:e.screenX,screenY:e.screenY,
+                        button:e.button||0,buttons:e.buttons||0,
+                        pointerId:e.pointerId||1
+                    },extra||{}))); }catch(_){}
+                }
 
-                // Re-dispatch hover so deck.gl tooltips still fire
-                ol.addEventListener('pointermove', function(e) {
-                    ol.style.pointerEvents = 'none';
-                    var below = doc.elementFromPoint(e.clientX, e.clientY);
-                    ol.style.pointerEvents = '';
-                    if (!below || below === ol) return;
-                    try { below.dispatchEvent(new PointerEvent('pointermove',{
-                        bubbles:true, cancelable:true,
-                        clientX:e.clientX, clientY:e.clientY,
-                        screenX:e.screenX, screenY:e.screenY
-                    })); } catch(_) {}
+                // Block zoom
+                ol.addEventListener('wheel',function(e){e.preventDefault();e.stopPropagation();},{passive:false});
+                ol.addEventListener('dblclick',function(e){e.preventDefault();e.stopPropagation();});
+                ol.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();},{passive:false});
+                ol.addEventListener('touchmove', function(e){e.preventDefault();e.stopPropagation();},{passive:false});
+
+                // Track drag — forward pointerdown for clicks, absorb drag moves
+                var drag={on:false,moved:false,x:0,y:0};
+                ol.addEventListener('pointerdown',function(e){
+                    drag.on=true; drag.moved=false; drag.x=e.clientX; drag.y=e.clientY;
+                    var b=below(e); if(b) fwd(b,'pointerdown',e);
                 });
+                ol.addEventListener('pointermove',function(e){
+                    if(drag.on){
+                        var d=Math.sqrt(Math.pow(e.clientX-drag.x,2)+Math.pow(e.clientY-drag.y,2));
+                        if(d>4) drag.moved=true;
+                        if(drag.moved) return; // absorb drag — no pan
+                    }
+                    // Hover: forward for tooltips
+                    var b=below(e);
+                    if(b) try{b.dispatchEvent(new PointerEvent('pointermove',{
+                        bubbles:true,cancelable:true,
+                        clientX:e.clientX,clientY:e.clientY,screenX:e.screenX,screenY:e.screenY
+                    }));}catch(_){}
+                });
+                ol.addEventListener('pointerup',function(e){
+                    var wasDrag=drag.moved; drag.on=false; drag.moved=false;
+                    var b=below(e);
+                    if(b){
+                        fwd(b,'pointerup',e);
+                        if(!wasDrag) try{b.dispatchEvent(new MouseEvent('click',{
+                            bubbles:true,cancelable:true,
+                            clientX:e.clientX,clientY:e.clientY,screenX:e.screenX,screenY:e.screenY
+                        }));}catch(_){}
+                    }
+                });
+                ol.addEventListener('pointercancel',function(){drag.on=false;drag.moved=false;});
 
                 par.appendChild(ol);
             });
 
-            // ── Dynamic list-container height (fill remaining sidebar space) ──
+            // ── Tab labels — force font size via JS (beats Emotion specificity) ──
+            doc.querySelectorAll('[data-baseweb="tab-list"] [data-baseweb="tab"]').forEach(function(tab) {
+                tab.style.setProperty('font-size','1.15rem','important');
+                tab.querySelectorAll('*').forEach(function(c){
+                    c.style.setProperty('font-size','1.15rem','important');
+                });
+            });
+
+            // ── Dynamic list-container height (fills remaining sidebar space) ──
             if (sb) {
                 var viewH = window.parent.innerHeight;
+                // st.container(height=N) → a div with computed overflowY=auto inside sidebar
                 sb.querySelectorAll('div').forEach(function(el) {
-                    // st.container(height=N) produces a div with inline height + overflow
-                    if (el.style.height && el.style.height.endsWith('px') &&
-                        (el.style.overflowY === 'auto' || el.style.overflow === 'auto')) {
-                        var rect = el.getBoundingClientRect();
-                        if (rect.height > 80 && rect.top > 60 && rect.top < viewH) {
-                            var fill = Math.max(120, viewH - rect.top - 6);
-                            el.style.setProperty('height', fill + 'px', 'important');
-                            el.style.setProperty('max-height', fill + 'px', 'important');
-                        }
-                    }
+                    var cs = getComputedStyle(el);
+                    if (cs.overflowY !== 'auto' && cs.overflow !== 'auto') return;
+                    if (el.scrollHeight < 50) return;
+                    var rect = el.getBoundingClientRect();
+                    if (rect.top < 60 || rect.top >= viewH || rect.height < 50) return;
+                    var fill = Math.max(80, viewH - rect.top - 4);
+                    el.style.setProperty('height', fill+'px', 'important');
+                    el.style.setProperty('max-height', fill+'px', 'important');
                 });
             }
         } catch(e) {}
