@@ -555,7 +555,7 @@ st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
   <h1 style='font-size:3.4rem; font-weight:800; letter-spacing:-1.5px;
              color:#1d1d1f; margin:0 0 0.2rem; line-height:1.05;'>
-    10-Millionen-Initiative
+    Initiative «Keine 10-Millionen-Schweiz»
   </h1>
   <div style='font-size:1.35rem; font-weight:500; color:#3a3a3c;
               letter-spacing:-0.2px;'>
