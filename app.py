@@ -333,6 +333,12 @@ button[kind="header"] { display: none !important; }
     padding-right: 1.5rem !important;
     max-width: 100% !important;
 }
+/* Seite selbst nicht scrollbar — nur Tabellencontainer scrollt */
+html, body, [data-testid="stAppViewContainer"],
+section[data-testid="stMain"], .main {
+    overflow: hidden !important;
+    height: 100vh !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -721,6 +727,12 @@ def _render_karte():
 
     if _embed:
         # ── Embed: nur Karte, volle Breite ────────────────────────────────────
+        st.markdown(
+            "<h2 style='font-size:1.25rem; font-weight:600; color:#1d1d1f; "
+            "margin:0 0 0.6rem; letter-spacing:-0.2px;'>"
+            "Wann erreichen die Seeländer Gemeinden ihr Limit?</h2>",
+            unsafe_allow_html=True,
+        )
         if df.empty:
             st.warning("Keine Gemeinden entsprechen den aktuellen Filtereinstellungen.")
         elif not api_verfuegbar:
@@ -1074,10 +1086,84 @@ def _render_tabelle():
             f"</tr>"
         )
 
-    _tbl_height = "calc(100vh - 80px)" if _embed else "600px"
-    st.markdown(f"""
+    _th_sort = (
+        "padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; "
+        "text-transform:uppercase; letter-spacing:0.05em; color:#6e6e73; "
+        "border-bottom:2px solid #d2d2d7; background:#f5f5f7; white-space:nowrap; "
+        "cursor:pointer; user-select:none;"
+    )
+    _th_sort_r = _th_sort + "text-align:right;"
+
+    _table_html = f"""
+    <div id="tbl-wrap" style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
+                overflow:hidden; background:#ffffff; overflow-y:auto;">
+      <table id="sort-tbl" style="width:100%; border-collapse:collapse;
+                    font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+                    background:#ffffff;">
+        <thead style="position:sticky; top:0; z-index:1;">
+          <tr>
+            <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕</th>
+            <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2014 ↕</th>
+            <th style="{_th_sort_r}" data-col="2" data-type="num">Bev. 2024 ↕</th>
+            <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ↕</th>
+            <th style="{_th_sort_r}" data-col="4" data-type="num">Verf. Wachstum ↕</th>
+            <th style="{_th_sort_r}" data-col="5" data-type="num">Wachstum p.a. ↕</th>
+            <th style="{_th_sort}" data-col="6" data-type="str">Limit erreicht ↕</th>
+            <th style="{_th_sort_r}" data-col="7" data-type="num">Jahre bis Limit ↕</th>
+          </tr>
+        </thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </div>
+    <script>
+    (function(){{
+      var tbl = document.getElementById('sort-tbl');
+      var wrap = document.getElementById('tbl-wrap');
+      // Höhe: Wrapper füllt Restfläche nach Header
+      function setH(){{
+        var top = wrap.getBoundingClientRect().top;
+        var vh = window.innerHeight;
+        wrap.style.height = Math.max(100, vh - top - 8) + 'px';
+      }}
+      setH(); window.addEventListener('resize', setH);
+
+      var asc = {{}};
+      tbl.querySelectorAll('thead th').forEach(function(th){{
+        th.addEventListener('click', function(){{
+          var col = +this.dataset.col;
+          var type = this.dataset.type;
+          asc[col] = !asc[col];
+          var tbody = tbl.querySelector('tbody');
+          var rows = Array.from(tbody.querySelectorAll('tr'));
+          rows.sort(function(a, b){{
+            var av = a.cells[col].textContent.trim();
+            var bv = b.cells[col].textContent.trim();
+            if(type === 'num'){{
+              av = parseFloat(av.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+              bv = parseFloat(bv.replace(/[^0-9.,-]/g,'').replace(/'/g,'').replace(',','.')) || 0;
+            }}
+            if(av < bv) return asc[col] ? -1 : 1;
+            if(av > bv) return asc[col] ? 1 : -1;
+            return 0;
+          }});
+          rows.forEach(function(r){{ tbody.appendChild(r); }});
+          // Pfeil-Indikator
+          tbl.querySelectorAll('thead th').forEach(function(h){{
+            h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
+          }});
+          this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col] ? ' ↑' : ' ↓');
+        }});
+      }});
+    }})();
+    </script>
+    """
+
+    if _embed:
+        st.components.v1.html(_table_html, height=800, scrolling=False)
+    else:
+        st.markdown(f"""
     <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
-                overflow:hidden; background:#ffffff; max-height:{_tbl_height}; overflow-y:auto;">
+                overflow:hidden; background:#ffffff; max-height:600px; overflow-y:auto;">
       <table style="width:100%; border-collapse:collapse;
                     font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
                     background:#ffffff;">
@@ -1143,45 +1229,6 @@ def _render_charts():
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    # ── Chart 3: Scatter Bevölkerung vs. Spielraum ───────────────────────────
-    st.subheader("Bevölkerung vs. verfügbares Wachstum")
-    df_sc = df_roh.copy()
-    df_sc["Wachstumsrate_abs"] = df_sc["Wachstumsrate"].abs() * 100
-    df_sc["Jahre_text"] = df_sc["Jahre_bis_Limit"].apply(
-        lambda x: str(int(x)) if pd.notna(x) else "Schrumpfend")
-    top3     = df_sc.nlargest(3, "Verf_Wachstum")["Gemeinde"].tolist()
-    bottom4  = df_sc[~df_sc["Schrumpfend"]].nsmallest(4, "Jahre_bis_Limit")["Gemeinde"].tolist()
-    groesste = df_sc.nlargest(2, "Bev_2024")["Gemeinde"].tolist()
-    labels_set = set(top3 + bottom4 + groesste)
-    df_sc["label"] = df_sc["Gemeinde"].apply(lambda g: g if g in labels_set else "")
-
-    fig3 = px.scatter(
-        df_sc,
-        x="Bev_2024", y="Verf_Wachstum",
-        color="Region", size="Wachstumsrate_abs", size_max=24,
-        hover_name="Gemeinde",
-        hover_data={
-            "Bev_2014": True, "Bev_2024": True,
-            "Verf_Wachstum": True, "Wachstumsrate_Pct": True,
-            "Limit_Jahr": True, "Jahre_text": True,
-            "Wachstumsrate_abs": False,
-        },
-        text="label",
-        labels={
-            "Bev_2024": "Bevölkerung 2024",
-            "Verf_Wachstum": "Verfügbares Wachstum (Personen)",
-            "Wachstumsrate_Pct": "Wachstumsrate p.a. (%)",
-            "Jahre_text": "Jahre bis Limit",
-            "Bev_2014": "Bevölkerung 2014",
-        },
-    )
-    fig3.update_traces(textposition="top center", textfont_size=11)
-    fig3.update_layout(
-        **PLOTLY_LAYOUT, height=520,
-        margin=dict(l=0, r=0, t=10, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-    )
-    st.plotly_chart(fig3, use_container_width=True)
 
 
 # ── Routing: Embed-Modus vs. normale Tab-Ansicht ──────────────────────────────
