@@ -31,16 +31,29 @@ html, body, [class*="css"] {
 [data-testid="stToolbar"] { display: none !important; }
 [data-testid="stDecoration"] { display: none !important; }
 
-/* App background */
-.stApp { background-color: #ffffff; }
+/* App background — alle Container explizit weiss */
+.stApp, .main, section[data-testid="stMain"],
+[data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
+
+/* Streamlit-Header ausblenden (Toolbar, Dekoration) */
+header[data-testid="stHeader"] {
+    background-color: #ffffff !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Logo-iframe: kein Rand, kein Abstand */
+[data-testid="stHtml"] { margin: 0 !important; padding: 0 !important; }
+[data-testid="stHtml"] iframe { display: block !important; border: none !important; }
 
 /* Main content area */
 .block-container {
-    padding-top: 3rem;
+    padding-top: 1rem;
     padding-bottom: 3rem;
 }
 
-/* Title */
+/* Title — mittig */
 h1 {
     font-size: 1.75rem !important;
     font-weight: 600 !important;
@@ -48,6 +61,7 @@ h1 {
     color: #1d1d1f !important;
     line-height: 1.25 !important;
     padding-bottom: 0.25rem;
+    text-align: center !important;
 }
 
 /* Subheadings */
@@ -77,7 +91,11 @@ hr {
 /* Sidebar scrollt nicht selbst — nur der Listen-Container scrollt */
 [data-testid="stSidebarContent"] {
     overflow: hidden !important;
-    padding-top: 1rem !important;
+    padding-top: 0 !important;
+}
+[data-testid="stSidebarUserContent"] {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0 !important;
 }
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
@@ -138,13 +156,13 @@ label[data-testid="stWidgetLabel"] > div > p,
     padding: 0.625rem 1.125rem;
     border-radius: 0;
     background: transparent;
-    border-bottom: 2px solid transparent;
+    border-bottom: none !important;
 }
 .stTabs [data-baseweb="tab"]:hover { color: #1d1d1f; }
 .stTabs [aria-selected="true"] {
     color: #1d1d1f !important;
-    border-bottom: 2px solid #1d1d1f !important;
     background: transparent !important;
+    border-bottom: none !important;
 }
 .stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem; }
 
@@ -232,13 +250,18 @@ AKTUELLES_JAHR = 2026
 _FARB_CAP      = 40
 FIND_URL = "https://api3.geo.admin.ch/rest/services/api/MapServer/find"
 
+_AXIS = dict(
+    gridcolor="#f0f0f0", linecolor="#d2d2d7", tickcolor="#d2d2d7",
+    tickfont=dict(color="#1d1d1f"),
+    title_font=dict(color="#1d1d1f"),
+)
 PLOTLY_LAYOUT = dict(
     font_family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif",
     font_color="#1d1d1f",
     paper_bgcolor="#ffffff",
     plot_bgcolor="#ffffff",
-    xaxis=dict(gridcolor="#f0f0f0", linecolor="#d2d2d7", tickcolor="#d2d2d7"),
-    yaxis=dict(gridcolor="#f0f0f0", linecolor="#d2d2d7", tickcolor="#d2d2d7"),
+    xaxis=_AXIS,
+    yaxis=_AXIS,
 )
 
 # Koordinaten — Fallback-Punktkarte
@@ -513,20 +536,28 @@ lottie.loadAnimation({{
 </body>
 </html>
 """, height=72)
-st.title("10-Millionen-Initiative")
-st.markdown(
-    "<div style='font-size:1.2rem; font-weight:400; color:#3a3a3c; "
-    "margin-top:-0.6rem; margin-bottom:0.75rem; letter-spacing:-0.1px;'>"
-    "So viel dürfte das Seeland noch wachsen</div>",
-    unsafe_allow_html=True,
-)
-st.markdown(
-    "Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln. "
-    "Ende 2024 lebten **9'051'029** Personen in der Schweiz — es bleiben noch **948'971** Plätze übrig (+10,5 %). "
-    "Dieses Kontingent wird proportional auf alle Gemeinden verteilt. "
-    "Die Farben zeigen, wie viele Jahre jede Gemeinde bei aktuellem Wachstum noch hat, "
-    "bis sie ihr Kontingent ausschöpft."
-)
+st.markdown("""
+<div style='text-align:center; padding:0.25rem 0 0.5rem;'>
+  <h1 style='font-size:1.75rem; font-weight:600; letter-spacing:-0.3px;
+             color:#1d1d1f; margin:0 0 0.3rem;'>
+    10-Millionen-Initiative
+  </h1>
+  <div style='font-size:1.2rem; font-weight:400; color:#3a3a3c;
+              letter-spacing:-0.1px; margin-bottom:0.75rem;'>
+    So viel dürfte das Seeland noch wachsen
+  </div>
+  <p style='font-size:0.9rem; color:#6e6e73; max-width:680px;
+            margin:0 auto; line-height:1.6;'>
+    Die <strong style='color:#3a3a3c;'>10-Millionen-Initiative</strong>
+    will die Einwohnerzahl der Schweiz bei <strong style='color:#3a3a3c;'>10 Millionen</strong> deckeln.
+    Ende 2024 lebten <strong style='color:#3a3a3c;'>9'051'029</strong> Personen in der Schweiz —
+    es bleiben noch <strong style='color:#3a3a3c;'>948'971</strong> Plätze übrig (+10,5 %).
+    Dieses Kontingent wird proportional auf alle Gemeinden verteilt.
+    Die Farben zeigen, wie viele Jahre jede Gemeinde bei aktuellem Wachstum noch hat,
+    bis sie ihr Kontingent ausschöpft.
+  </p>
+</div>
+""", unsafe_allow_html=True)
 st.divider()
 
 
@@ -589,7 +620,7 @@ df = df_roh.copy()
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Charts"])
+tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Diagramme"])
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -740,12 +771,46 @@ with tab_karte:
 # TAB 2 — TABELLE
 # ════════════════════════════════════════════════════════════════════════════
 with tab_tabelle:
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Gemeinden", len(df_roh))
-    c2.metric("Gesamtbevölkerung 2024",
-              f"{int(df_roh['Bev_2024'].sum()):,}".replace(",", "'"))
-    c3.metric("Gesamtspielraum",
-              f"{int(df_roh['Verf_Wachstum'].sum()):,}".replace(",", "'") + " Pers.")
+    # ── Regionale Übersicht ──────────────────────────────────────────────────
+    st.markdown(
+        "<div style='font-size:0.7rem; font-weight:600; text-transform:uppercase; "
+        "letter-spacing:0.07em; color:#6e6e73; margin-bottom:0.6rem;'>"
+        "Das ajour-Land im Überblick</div>",
+        unsafe_allow_html=True,
+    )
+
+    _bev14 = int(df_roh["Bev_2014"].sum())
+    _bev24 = int(df_roh["Bev_2024"].sum())
+    _kont  = int(df_roh["Kontingent"].sum())
+    _verf  = int(df_roh["Verf_Wachstum"].sum())
+    _cagr  = ((_bev24 / _bev14) ** (1 / 10) - 1) * 100
+    _limit_median = int(
+        pd.to_numeric(
+            df_roh.loc[~df_roh["Schrumpfend"], "Limit_Jahr"], errors="coerce"
+        ).dropna().median()
+    )
+
+    def _ovcard(col, label, value):
+        col.markdown(f"""
+        <div style='background:#f5f5f7; border-radius:10px;
+                    padding:0.9rem 1rem 0.8rem;'>
+          <div style='font-size:0.65rem; font-weight:600; text-transform:uppercase;
+                      letter-spacing:0.06em; color:#6e6e73; margin-bottom:0.25rem'>
+            {label}</div>
+          <div style='font-size:1.25rem; font-weight:600; color:#1d1d1f;
+                      letter-spacing:-0.3px; white-space:nowrap'>{value}</div>
+        </div>""", unsafe_allow_html=True)
+
+    ov1, ov2, ov3 = st.columns(3)
+    _ovcard(ov1, "Bevölkerung 2014", tsd(_bev14))
+    _ovcard(ov2, "Bevölkerung 2024", tsd(_bev24))
+    _ovcard(ov3, "Kontingent total", tsd(_kont))
+
+    ov4, ov5, ov6 = st.columns(3)
+    _ovcard(ov4, "Verfügbares Wachstum", tsd(_verf))
+    _ovcard(ov5, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
+    _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
+
     st.divider()
 
     th = ("padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; "
