@@ -15,6 +15,10 @@ st.set_page_config(
     layout="wide",
 )
 
+# ── Embed-Routing ─────────────────────────────────────────────────────────────
+_view  = st.query_params.get("view", "").lower()
+_embed = _view in ("karte", "tabelle", "charts")
+
 # ── Apple-like CSS ────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -315,6 +319,23 @@ label[data-testid="stWidgetLabel"] > div > p,
 </style>
 """, unsafe_allow_html=True)
 
+# ── Embed-spezifisches CSS (Sidebar, Header, Padding komplett entfernen) ──────
+if _embed:
+    st.markdown("""
+<style>
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+button[kind="header"] { display: none !important; }
+.block-container {
+    padding-top: 0.5rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    max-width: 100% !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ── Konstanten ────────────────────────────────────────────────────────────────
 AKTUELLES_JAHR = 2026
 _FARB_CAP      = 40
@@ -577,7 +598,8 @@ with open("ajour-logo.json") as _f:
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("""
+if not _embed:
+    st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
   <h1 style='font-size:10rem; font-weight:1800; letter-spacing:0px;
              color:#1d1d1f; margin:0 0 0.25rem; line-height:0.95;'>
@@ -589,11 +611,12 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
-st.divider()
+    st.divider()
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
+if not _embed:
+ with st.sidebar:
     # Logo ganz oben in der Sidebar (280 px breit, Höhe proportional 280/5.49 ≈ 51 px)
     st.components.v1.html(f"""
     <!DOCTYPE html><html><head>
@@ -674,14 +697,11 @@ with st.sidebar:
 df = df_roh.copy()
 
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Diagramme"])
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB-INHALT ALS FUNKTIONEN
+# ══════════════════════════════════════════════════════════════════════════════
 
-
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 1 — KARTE
-# ════════════════════════════════════════════════════════════════════════════
-with tab_karte:
+def _render_karte():
     _df_w = df_roh[~df_roh["Schrumpfend"]]
 
     def kachel(col, label, wert):
@@ -853,10 +873,8 @@ with tab_karte:
         kachel(k4, "Schrumpfend",     len(df_roh[df_roh["Schrumpfend"]]))
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 2 — TABELLE
-# ════════════════════════════════════════════════════════════════════════════
-with tab_tabelle:
+
+def _render_tabelle():
     # ── Regionale Übersicht ──────────────────────────────────────────────────
     st.markdown(
         "<div style='font-size:0.7rem; font-weight:600; text-transform:uppercase; "
@@ -949,10 +967,8 @@ with tab_tabelle:
     """, unsafe_allow_html=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 3 — CHARTS
-# ════════════════════════════════════════════════════════════════════════════
-with tab_charts:
+
+def _render_charts():
 
     # ── Chart 1: Top 15 schnellstwachsende Gemeinden ────────────────────────
     st.subheader("Top 15 schnellstwachsende Gemeinden (CAGR p.a.)")
@@ -1036,8 +1052,27 @@ with tab_charts:
     st.plotly_chart(fig3, use_container_width=True)
 
 
-# ── JS-Patch: Sidebar-Gap + Map-Lock via window.parent ────────────────────────
-st.components.v1.html("""
+# ── Routing: Embed-Modus vs. normale Tab-Ansicht ──────────────────────────────
+if _embed:
+    if _view == "karte":
+        _render_karte()
+    elif _view == "tabelle":
+        _render_tabelle()
+    elif _view == "charts":
+        _render_charts()
+else:
+    tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Diagramme"])
+    with tab_karte:
+        _render_karte()
+    with tab_tabelle:
+        _render_tabelle()
+    with tab_charts:
+        _render_charts()
+
+
+# ── JS-Patch: Sidebar-Gap + Map-Lock (nur im Vollbild-Modus) ─────────────────
+if not _embed:
+ st.components.v1.html("""
 <script>
 (function() {
     function fixAll() {
@@ -1197,10 +1232,11 @@ st.components.v1.html("""
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-st.divider()
-st.caption(
-    "Bevölkerungsdaten: Bundesamt für Statistik, Bilanz der ständigen Wohnbevölkerung "
-    "nach Bezirken und Gemeinden, 1991–2024  ·  "
-    "Methodik: Proportionale Zuteilung des nationalen Kontingents  ·  "
-    "Gemeindegrenzen: © swisstopo (geo.admin.ch)"
-)
+if not _embed:
+    st.divider()
+    st.caption(
+        "Bevölkerungsdaten: Bundesamt für Statistik, Bilanz der ständigen Wohnbevölkerung "
+        "nach Bezirken und Gemeinden, 1991–2024  ·  "
+        "Methodik: Proportionale Zuteilung des nationalen Kontingents  ·  "
+        "Gemeindegrenzen: © swisstopo (geo.admin.ch)"
+    )
