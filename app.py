@@ -553,12 +553,12 @@ with open("ajour-logo.json") as _f:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
-  <h1 style='font-size:2.4rem; font-weight:700; letter-spacing:-0.5px;
-             color:#1d1d1f; margin:0 0 0.15rem; line-height:1.15;'>
+  <h1 style='font-size:3.4rem; font-weight:800; letter-spacing:-1.5px;
+             color:#1d1d1f; margin:0 0 0.2rem; line-height:1.05;'>
     10-Millionen-Initiative
   </h1>
-  <div style='font-size:1.15rem; font-weight:400; color:#3a3a3c;
-              letter-spacing:-0.1px;'>
+  <div style='font-size:1.35rem; font-weight:500; color:#3a3a3c;
+              letter-spacing:-0.2px;'>
     So viel dürfte das Seeland noch wachsen
   </div>
 </div>
@@ -595,39 +595,46 @@ with st.sidebar:
         if not sel_row.empty:
             r     = sel_row.iloc[0]
             wrate = f"{r['Wachstumsrate_Pct']:.2f} %" if pd.notna(r["Wachstumsrate_Pct"]) else "—"
-            val   = "color:#1d1d1f; text-align:right; font-weight:500; white-space:nowrap"
-            lbl   = "color:#6e6e73"
+            schrumpfend = bool(r.get("Schrumpfend", False))
+            lbl = ("font-size:0.76rem; color:#6e6e73; padding:3px 0; "
+                   "vertical-align:top; width:55%;")
+            val = ("font-size:0.76rem; color:#1d1d1f; font-weight:500; "
+                   "text-align:right; vertical-align:top; padding:3px 0 3px 6px;")
+            kontingent_str = tsd(r["Kontingent"]) if not schrumpfend else "—"
+            verf_str       = tsd(r["Verf_Wachstum"]) if not schrumpfend else "—"
+            limit_str      = str(r["Limit_Jahr"]) if not schrumpfend else "Schrumpfend"
             st.markdown(f"""
-            <div style='font-family:-apple-system,BlinkMacSystemFont,
-                        "Helvetica Neue",Arial,sans-serif; margin-top:6px;'>
-              <div style='font-size:0.8125rem; font-weight:600;
-                          color:#1d1d1f; margin-bottom:6px'>{sel}</div>
-              <div style='background:#eaeaec; border-radius:8px;
-                          padding:9px 12px; font-size:0.78rem;'>
-                <table style='width:100%; border-collapse:collapse; line-height:1.9;'>
-                  <tr><td style='{lbl}'>Bevölkerung 2014</td>
-                      <td style='{val}'>{tsd(r["Bev_2014"])}</td></tr>
-                  <tr><td style='{lbl}'>Bevölkerung 2024</td>
-                      <td style='{val}'>{tsd(r["Bev_2024"])}</td></tr>
-                  <tr><td style='{lbl}'>Wachstum in % p. a.</td>
-                      <td style='{val}'>{wrate}</td></tr>
-                  <tr><td style='{lbl}'>Kontingent</td>
-                      <td style='{val}'>{tsd(r["Kontingent"])}</td></tr>
-                  <tr><td style='{lbl}'>Verfügbares Wachstum</td>
-                      <td style='{val}'>{tsd(r["Verf_Wachstum"])}</td></tr>
-                  <tr><td style='{lbl}'>Limite erreicht</td>
-                      <td style='{val}'>{r["Limit_Jahr"]}</td></tr>
-                </table>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+            margin:6px 8px 0;'>
+  <div style='font-size:0.8125rem; font-weight:600; color:#1d1d1f;
+              margin-bottom:5px; padding:0 4px;'>{sel}</div>
+  <div style='background:#eaeaec; border-radius:8px; padding:7px 10px;'>
+    <table style='width:100%; border-collapse:collapse;
+                  table-layout:fixed; line-height:1.6;'>
+      <tr><td style='{lbl}'>Bevölkerung 2014</td>
+          <td style='{val}'>{tsd(r["Bev_2014"])}</td></tr>
+      <tr><td style='{lbl}'>Bevölkerung 2024</td>
+          <td style='{val}'>{tsd(r["Bev_2024"])}</td></tr>
+      <tr><td style='{lbl}'>Wachstum p. a.</td>
+          <td style='{val}'>{wrate}</td></tr>
+      <tr><td style='{lbl}'>Kontingent</td>
+          <td style='{val}'>{kontingent_str}</td></tr>
+      <tr><td style='{lbl}'>Verf. Wachstum</td>
+          <td style='{val}'>{verf_str}</td></tr>
+      <tr><td style='{lbl}'>Limite</td>
+          <td style='{val}'>{limit_str}</td></tr>
+    </table>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
     if sel:
         st.divider()
     st.header("Gemeinden")
 
     # Scrollbarer Sub-Container — nur die Liste scrollt, Details-Panel bleibt oben
-    with st.container(height=500, border=False):
+    _list_height = 420 if sel else 600
+    with st.container(height=_list_height, border=False):
         for _, row in df_roh.sort_values("Gemeinde").iterrows():
             name        = row["Gemeinde"]
             is_selected = st.session_state.selected_gemeinde == name
@@ -649,6 +656,23 @@ tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Diagramme"])
 # TAB 1 — KARTE
 # ════════════════════════════════════════════════════════════════════════════
 with tab_karte:
+    _df_w = df_roh[~df_roh["Schrumpfend"]]
+
+    def kachel(col, label, wert):
+        col.markdown(f"""
+        <div style='background:#f5f5f7; border-radius:10px;
+                    padding:0.7rem 0.8rem 0.6rem; margin-bottom:0.4rem;'>
+          <div style='font-size:0.62rem; font-weight:600; text-transform:uppercase;
+                      letter-spacing:0.06em; color:#6e6e73;
+                      margin-bottom:0.2rem'>{label}</div>
+          <div>
+            <span style='font-size:1.3rem; font-weight:700;
+                         color:#1d1d1f; letter-spacing:-0.3px'>{wert}</span>
+            <span style='font-size:0.75rem; color:#6e6e73;
+                         margin-left:4px'>Gem.</span>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
     col_map, col_desc = st.columns([2, 1], gap="large")
 
     with col_map:
@@ -764,7 +788,7 @@ with tab_karte:
 
     with col_desc:
         st.markdown("""
-        <p style='font-size:0.9rem; color:#6e6e73; line-height:1.75; margin:0;
+        <p style='font-size:0.9rem; color:#6e6e73; line-height:1.75; margin:0 0 1rem;
                   padding-top:0.25rem;'>
           Die <strong style='color:#3a3a3c;'>10-Millionen-Initiative</strong>
           will die Einwohnerzahl der Schweiz bei
@@ -778,29 +802,12 @@ with tab_karte:
         </p>
         """, unsafe_allow_html=True)
 
-    st.divider()
-    df_w = df_roh[~df_roh["Schrumpfend"]]
-
-    def kachel(col, label, wert):
-        col.markdown(f"""
-        <div style='background:#f5f5f7; border-radius:10px;
-                    padding:1rem 1.1rem 0.9rem;'>
-          <div style='font-size:0.6875rem; font-weight:600;
-                      text-transform:uppercase; letter-spacing:0.06em;
-                      color:#6e6e73; margin-bottom:0.3rem'>{label}</div>
-          <div>
-            <span style='font-size:1.4rem; font-weight:600;
-                         color:#1d1d1f; letter-spacing:-0.3px'>{wert}</span>
-            <span style='font-size:0.8125rem; font-weight:400;
-                         color:#6e6e73; margin-left:5px'>Gemeinden</span>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-    c1, c2, c3, c4 = st.columns(4)
-    kachel(c1, "Limit bis 2030",   len(df_w[df_w["Jahre_bis_Limit"] <= 4]))
-    kachel(c2, "Limit 2031–2040",  len(df_w[(df_w["Jahre_bis_Limit"] > 4) & (df_w["Jahre_bis_Limit"] <= 14)]))
-    kachel(c3, "Limit ab 2041",    len(df_w[df_w["Jahre_bis_Limit"] > 14]))
-    kachel(c4, "Schrumpfend",      len(df_roh[df_roh["Schrumpfend"]]))
+        k1, k2 = st.columns(2, gap="small")
+        kachel(k1, "Limit bis 2030",  len(_df_w[_df_w["Jahre_bis_Limit"] <= 4]))
+        kachel(k2, "Limit 2031–2040", len(_df_w[(_df_w["Jahre_bis_Limit"] > 4) & (_df_w["Jahre_bis_Limit"] <= 14)]))
+        k3, k4 = st.columns(2, gap="small")
+        kachel(k3, "Limit ab 2041",   len(_df_w[_df_w["Jahre_bis_Limit"] > 14]))
+        kachel(k4, "Schrumpfend",     len(df_roh[df_roh["Schrumpfend"]]))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -986,57 +993,84 @@ with tab_charts:
     st.plotly_chart(fig3, use_container_width=True)
 
 
-# ── JS-Patch: Sidebar-Gap via window.parent ───────────────────────────────────
+# ── JS-Patch: Sidebar-Gap + Map-Lock via window.parent ────────────────────────
 st.components.v1.html("""
 <script>
 (function() {
-    function fixGaps() {
+    function fixAll() {
         try {
             var doc = window.parent.document;
-            var sb = doc.querySelector('[data-testid="stSidebar"]');
-            if (!sb) return;
 
-            // Kill padding on the direct wrapper chain above the logo
-            ['stSidebarContent','stSidebarUserContent'].forEach(function(tid) {
-                var el = sb.querySelector('[data-testid="' + tid + '"]');
-                if (!el) return;
-                el.style.setProperty('padding','0px','important');
-                el.style.setProperty('margin','0px','important');
-                // also kill children's top padding/gap (Emotion wrappers)
-                Array.from(el.children).forEach(function(c) {
-                    c.style.setProperty('padding-top','0px','important');
-                    c.style.setProperty('margin-top','0px','important');
-                    c.style.setProperty('gap','0px','important');
-                    c.style.setProperty('row-gap','0px','important');
-                    Array.from(c.children).forEach(function(gc) {
-                        gc.style.setProperty('padding-top','0px','important');
-                        gc.style.setProperty('margin-top','0px','important');
-                        gc.style.setProperty('gap','0px','important');
-                        gc.style.setProperty('row-gap','0px','important');
+            // ── Sidebar spacing ───────────────────────────────────────────
+            var sb = doc.querySelector('[data-testid="stSidebar"]');
+            if (sb) {
+                ['stSidebarContent','stSidebarUserContent'].forEach(function(tid) {
+                    var el = sb.querySelector('[data-testid="' + tid + '"]');
+                    if (!el) return;
+                    el.style.setProperty('padding','0px','important');
+                    el.style.setProperty('margin','0px','important');
+                    Array.from(el.children).forEach(function(c) {
+                        c.style.setProperty('padding-top','0px','important');
+                        c.style.setProperty('margin-top','0px','important');
+                        c.style.setProperty('gap','0px','important');
+                        c.style.setProperty('row-gap','0px','important');
+                        Array.from(c.children).forEach(function(gc) {
+                            gc.style.setProperty('padding-top','0px','important');
+                            gc.style.setProperty('margin-top','0px','important');
+                            gc.style.setProperty('gap','0px','important');
+                            gc.style.setProperty('row-gap','0px','important');
+                        });
                     });
                 });
-            });
+                sb.querySelectorAll('[data-testid="stVerticalBlock"],[data-testid="stVerticalBlockBorderWrapper"]').forEach(function(el) {
+                    el.style.setProperty('gap','0px','important');
+                    el.style.setProperty('row-gap','0px','important');
+                    el.style.setProperty('padding','0px','important');
+                    el.style.setProperty('margin','0px','important');
+                });
+                sb.querySelectorAll('div[data-testid="stButton"]').forEach(function(el) {
+                    el.style.setProperty('margin','0px','important');
+                    el.style.setProperty('padding','0px','important');
+                });
+                // kill margin on the stHtml iframe wrapper (logo)
+                sb.querySelectorAll('[data-testid="stHtml"]').forEach(function(el) {
+                    el.style.setProperty('margin','0px','important');
+                    el.style.setProperty('padding','0px','important');
+                });
+            }
 
-            // Kill gap on all vertical blocks and border wrappers
-            sb.querySelectorAll('[data-testid="stVerticalBlock"],[data-testid="stVerticalBlockBorderWrapper"]').forEach(function(el) {
-                el.style.setProperty('gap','0px','important');
-                el.style.setProperty('row-gap','0px','important');
-                el.style.setProperty('padding','0px','important');
-                el.style.setProperty('margin','0px','important');
-            });
-
-            // Kill margins on individual button wrappers
-            sb.querySelectorAll('div[data-testid="stButton"]').forEach(function(el) {
-                el.style.setProperty('margin','0px','important');
-                el.style.setProperty('padding','0px','important');
+            // ── Map lock (block zoom + pan, keep hover/tooltip) ───────────
+            doc.querySelectorAll('[data-testid="stDeckGlJsonChart"]').forEach(function(chart) {
+                if (chart._deckLocked) return;
+                chart._deckLocked = true;
+                // block scroll zoom
+                chart.addEventListener('wheel', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                }, {passive: false, capture: true});
+                // block drag pan (stop mousedown so deck.gl never starts tracking)
+                chart.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                }, {capture: true});
+                // block double-click zoom
+                chart.addEventListener('dblclick', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                }, {capture: true});
+                // block touch pan/zoom
+                chart.addEventListener('touchstart', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                }, {passive: false, capture: true});
+                chart.addEventListener('touchmove', function(e) {
+                    e.stopPropagation(); e.preventDefault();
+                }, {passive: false, capture: true});
+                chart.style.setProperty('cursor','default','important');
             });
         } catch(e) {}
     }
-    fixGaps();
-    setInterval(fixGaps, 600);
+    fixAll();
+    setInterval(fixAll, 800);
 })();
 </script>
-""", height=0)
+""", height=1)
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
