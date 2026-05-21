@@ -91,11 +91,14 @@ hr {
 /* Sidebar scrollt nicht selbst — nur der Listen-Container scrollt */
 [data-testid="stSidebarContent"] {
     overflow: hidden !important;
-    padding-top: 0 !important;
+    padding: 0 !important;
 }
 [data-testid="stSidebarUserContent"] {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stHeading"] {
+    padding: 0.35rem 0.75rem 0.1rem !important;
+    margin: 0 !important;
 }
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
@@ -649,8 +652,7 @@ with tab_karte:
             view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
             st.pydeck_chart(
                 pdk.Deck(layers=[layer], initial_view_state=view,
-                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                         controller=False),
+                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"),
                 use_container_width=True,
             )
         else:
@@ -732,7 +734,6 @@ with tab_karte:
                         initial_view_state=view_state,
                         tooltip=tooltip,
                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                        controller=False,
                     ),
                     use_container_width=True,
                     key="hauptkarte",
@@ -826,12 +827,14 @@ with tab_tabelle:
                       letter-spacing:-0.3px; white-space:nowrap'>{value}</div>
         </div>""", unsafe_allow_html=True)
 
-    ov1, ov2, ov3 = st.columns(3)
+    ov1, ov2, ov3 = st.columns(3, gap="medium")
     _ovcard(ov1, "Bevölkerung 2014", tsd(_bev14))
     _ovcard(ov2, "Bevölkerung 2024", tsd(_bev24))
     _ovcard(ov3, "Kontingent total", tsd(_kont))
 
-    ov4, ov5, ov6 = st.columns(3)
+    st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+
+    ov4, ov5, ov6 = st.columns(3, gap="medium")
     _ovcard(ov4, "Verfügbares Wachstum", tsd(_verf))
     _ovcard(ov5, "Wachstum p. a. (Region)", f"{_cagr:.2f} %")
     _ovcard(ov6, "Medianes Limit-Jahr", str(_limit_median))
