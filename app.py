@@ -88,6 +88,17 @@ hr {
     width: 280px !important;
     min-width: 280px !important;
 }
+/* Sidebar-Header (Schliessen-Button) aus dem Fluss nehmen → kein Platz oben */
+[data-testid="stSidebarHeader"] {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    z-index: 1000 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 /* Sidebar scrollt nicht selbst — nur der Listen-Container scrollt */
 [data-testid="stSidebarContent"] {
     overflow: hidden !important;
@@ -166,7 +177,7 @@ label[data-testid="stWidgetLabel"] > div > p,
     background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
-    font-size: 0.8125rem;
+    font-size: 1rem;
     font-weight: 500;
     color: #6e6e73;
     padding: 0.625rem 1.125rem;
@@ -553,12 +564,12 @@ with open("ajour-logo.json") as _f:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
-  <h1 style='font-size:3.4rem; font-weight:800; letter-spacing:-1.5px;
-             color:#1d1d1f; margin:0 0 0.2rem; line-height:1.05;'>
+  <h1 style='font-size:4.6rem; font-weight:900; letter-spacing:-2.5px;
+             color:#1d1d1f; margin:0 0 0.25rem; line-height:1.0;'>
     Initiative «Keine 10-Millionen-Schweiz»
   </h1>
-  <div style='font-size:1.35rem; font-weight:500; color:#3a3a3c;
-              letter-spacing:-0.2px;'>
+  <div style='font-size:1.55rem; font-weight:500; color:#3a3a3c;
+              letter-spacing:-0.3px;'>
     So viel dürfte das Seeland noch wachsen
   </div>
 </div>
@@ -600,9 +611,9 @@ with st.sidebar:
                    "vertical-align:top; width:55%;")
             val = ("font-size:0.76rem; color:#1d1d1f; font-weight:500; "
                    "text-align:right; vertical-align:top; padding:3px 0 3px 6px;")
-            kontingent_str = tsd(r["Kontingent"]) if not schrumpfend else "—"
-            verf_str       = tsd(r["Verf_Wachstum"]) if not schrumpfend else "—"
-            limit_str      = str(r["Limit_Jahr"]) if not schrumpfend else "Schrumpfend"
+            kontingent_str = tsd(r["Kontingent"])
+            verf_str       = tsd(r["Verf_Wachstum"])
+            limit_str      = "Schrumpfend" if schrumpfend else str(r["Limit_Jahr"])
             st.markdown(f"""
 <div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
             margin:6px 8px 0;'>
@@ -633,7 +644,7 @@ with st.sidebar:
     st.header("Gemeinden")
 
     # Scrollbarer Sub-Container — nur die Liste scrollt, Details-Panel bleibt oben
-    _list_height = 420 if sel else 600
+    _list_height = 440 if sel else 760
     with st.container(height=_list_height, border=False):
         for _, row in df_roh.sort_values("Gemeinde").iterrows():
             name        = row["Gemeinde"]
@@ -745,7 +756,7 @@ with tab_karte:
                 }
 
                 view_state = pdk.ViewState(
-                    latitude=47.09, longitude=7.24, zoom=10, pitch=0,
+                    latitude=47.09, longitude=7.24, zoom=9, pitch=0,
                     transition_duration=800,
                 )
 
@@ -1004,6 +1015,17 @@ st.components.v1.html("""
             // ── Sidebar spacing ───────────────────────────────────────────
             var sb = doc.querySelector('[data-testid="stSidebar"]');
             if (sb) {
+                // Pull sidebar header out of flow (removes space above logo)
+                var sbHdr = sb.querySelector('[data-testid="stSidebarHeader"]');
+                if (sbHdr) {
+                    sbHdr.style.setProperty('position','absolute','important');
+                    sbHdr.style.setProperty('top','4px','important');
+                    sbHdr.style.setProperty('right','4px','important');
+                    sbHdr.style.setProperty('z-index','1000','important');
+                    sbHdr.style.setProperty('height','auto','important');
+                    sbHdr.style.setProperty('padding','0','important');
+                    sbHdr.style.setProperty('margin','0','important');
+                }
                 ['stSidebarContent','stSidebarUserContent'].forEach(function(tid) {
                     var el = sb.querySelector('[data-testid="' + tid + '"]');
                     if (!el) return;
@@ -1039,30 +1061,73 @@ st.components.v1.html("""
                 });
             }
 
-            // ── Map lock (block zoom + pan, keep hover/tooltip) ───────────
+            // ── Map lock — transparent overlay approach ───────────────────
+            // Overlay sits on top of the canvas: blocks wheel+drag, but
+            // re-dispatches pointermove so deck.gl tooltips still fire.
             doc.querySelectorAll('[data-testid="stDeckGlJsonChart"]').forEach(function(chart) {
                 if (chart._deckLocked) return;
                 chart._deckLocked = true;
-                // block scroll zoom
-                chart.addEventListener('wheel', function(e) {
-                    e.stopPropagation(); e.preventDefault();
-                }, {passive: false, capture: true});
-                // block drag pan (stop mousedown so deck.gl never starts tracking)
-                chart.addEventListener('mousedown', function(e) {
+
+                // Make chart a positioning context
+                chart.style.setProperty('position','relative','important');
+
+                var ol = doc.createElement('div');
+                ol.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;' +
+                                   'z-index:999;cursor:default;background:transparent;';
+
+                // Block zoom
+                ol.addEventListener('wheel', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                }, {passive: false});
+
+                // Block drag-pan
+                ol.addEventListener('pointerdown', function(e) {
                     e.stopPropagation();
-                }, {capture: true});
-                // block double-click zoom
-                chart.addEventListener('dblclick', function(e) {
-                    e.stopPropagation(); e.preventDefault();
-                }, {capture: true});
-                // block touch pan/zoom
-                chart.addEventListener('touchstart', function(e) {
-                    e.stopPropagation(); e.preventDefault();
-                }, {passive: false, capture: true});
-                chart.addEventListener('touchmove', function(e) {
-                    e.stopPropagation(); e.preventDefault();
-                }, {passive: false, capture: true});
-                chart.style.setProperty('cursor','default','important');
+                });
+                ol.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                });
+
+                // Block double-click zoom
+                ol.addEventListener('dblclick', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                });
+
+                // Block touch
+                ol.addEventListener('touchstart', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                }, {passive: false});
+                ol.addEventListener('touchmove', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                }, {passive: false});
+
+                // Pass hover through so deck.gl tooltips still work:
+                // temporarily hide overlay → find canvas below → dispatch synthetic event
+                function passHover(e) {
+                    ol.style.pointerEvents = 'none';
+                    var below = doc.elementFromPoint(e.clientX, e.clientY);
+                    ol.style.pointerEvents = '';
+                    if (!below || below === ol) return;
+                    try {
+                        below.dispatchEvent(new PointerEvent('pointermove', {
+                            bubbles: true, cancelable: true,
+                            clientX: e.clientX, clientY: e.clientY,
+                            screenX: e.screenX, screenY: e.screenY,
+                            movementX: e.movementX || 0, movementY: e.movementY || 0
+                        }));
+                    } catch(_) {}
+                }
+                ol.addEventListener('pointermove', passHover);
+                ol.addEventListener('pointerleave', function(e) {
+                    ol.style.pointerEvents = 'none';
+                    var below = doc.elementFromPoint(e.clientX, e.clientY);
+                    ol.style.pointerEvents = '';
+                    if (below) try {
+                        below.dispatchEvent(new PointerEvent('pointerleave', {bubbles: false}));
+                    } catch(_) {}
+                });
+
+                chart.appendChild(ol);
             });
         } catch(e) {}
     }
