@@ -536,25 +536,15 @@ with open("ajour-logo.json") as _f:
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style='text-align:center; padding:0.1rem 0 0.4rem;'>
+<div style='text-align:center; padding:0.1rem 0 0.3rem;'>
   <h1 style='font-size:2.4rem; font-weight:700; letter-spacing:-0.5px;
              color:#1d1d1f; margin:0 0 0.15rem; line-height:1.15;'>
     10-Millionen-Initiative
   </h1>
   <div style='font-size:1.15rem; font-weight:400; color:#3a3a3c;
-              letter-spacing:-0.1px; margin-bottom:0.4rem;'>
+              letter-spacing:-0.1px;'>
     So viel dürfte das Seeland noch wachsen
   </div>
-  <p style='font-size:0.9rem; color:#6e6e73; max-width:100%;
-            margin:0 auto; line-height:1.6;'>
-    Die <strong style='color:#3a3a3c;'>10-Millionen-Initiative</strong>
-    will die Einwohnerzahl der Schweiz bei <strong style='color:#3a3a3c;'>10 Millionen</strong> deckeln.
-    Ende 2024 lebten <strong style='color:#3a3a3c;'>9'051'029</strong> Personen in der Schweiz —
-    es bleiben noch <strong style='color:#3a3a3c;'>948'971</strong> Plätze übrig (+10,5 %).
-    Dieses Kontingent wird proportional auf alle Gemeinden verteilt.
-    Die Farben zeigen, wie viele Jahre jede Gemeinde bei aktuellem Wachstum noch hat,
-    bis sie ihr Kontingent ausschöpft.
-  </p>
 </div>
 """, unsafe_allow_html=True)
 st.divider()
@@ -643,109 +633,128 @@ tab_karte, tab_tabelle, tab_charts = st.tabs(["Karte", "Tabelle", "Diagramme"])
 # TAB 1 — KARTE
 # ════════════════════════════════════════════════════════════════════════════
 with tab_karte:
-    if df.empty:
-        st.warning("Keine Gemeinden entsprechen den aktuellen Filtereinstellungen.")
-    elif not api_verfuegbar:
-        st.info("Gemeindegrenzen konnten nicht geladen werden — Darstellung als Punkte.")
-        df["farbe"]  = df.apply(lambda r: zeitfarbe(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
-        max_bev      = df_roh["Bev_2024"].max()
-        df["radius"] = (df["Bev_2024"] / max_bev * 2200 + 300).round(0)
-        layer = pdk.Layer("ScatterplotLayer", data=df,
-                          get_position="[lon, lat]", get_fill_color="farbe",
-                          get_radius="radius", pickable=True, opacity=0.85)
-        view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
-        st.pydeck_chart(
-            pdk.Deck(layers=[layer], initial_view_state=view,
-                     map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"),
-            use_container_width=True,
-        )
-    else:
-        # Sicherstellen: ausgewählte Gemeinde ist immer im Layer,
-        # auch wenn sie durch den Filter nicht in df enthalten ist
-        sel_name = st.session_state.selected_gemeinde
-        df_map = df.copy()
-        if sel_name and sel_name not in df_map["Gemeinde"].values:
-            sel_row = df_roh[df_roh["Gemeinde"] == sel_name]
-            if not sel_row.empty:
-                df_map = pd.concat([df_map, sel_row], ignore_index=True)
+    col_map, col_desc = st.columns([2, 1], gap="large")
 
-        features = erstelle_polygon_features(df_map, geometrien)
-
-        # Highlight-Ring für die ausgewählte Gemeinde
-        hl_features = []
-        if sel_name and sel_name in geometrien:
-            for ring in geometrien[sel_name]:
-                hl_features.append({"polygon": [ring]})
-
-        if not features:
-            st.warning("Keine Polygondaten verfügbar. Bitte Seite neu laden.")
-        else:
-            tooltip = {
-                "html": """
-                <div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",
-                            Arial,sans-serif; font-size:13px; min-width:220px;
-                            color:#1d1d1f'>
-                  <div style='font-size:15px; font-weight:600;
-                              margin-bottom:8px'>{Gemeinde} <span
-                    style='font-weight:400; color:#6e6e73'>({Kt})</span></div>
-                  <div style='border-top:1px solid #d2d2d7; margin-bottom:8px'></div>
-                  <table style='width:100%; border-collapse:collapse;
-                                font-size:12.5px; line-height:1.7'>
-                    <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
-                        <td style='text-align:right; font-weight:500'>{Bev_2014}</td></tr>
-                    <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
-                        <td style='text-align:right; font-weight:500'>{Bev_2024}</td></tr>
-                    <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
-                        <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
-                    <tr><td style='color:#6e6e73'>Kontingent bei 10-Millionen-Schweiz</td>
-                        <td style='text-align:right; font-weight:500'>{Kontingent}</td></tr>
-                    <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
-                        <td style='text-align:right; font-weight:500'>{Verf_Wachstum}</td></tr>
-                    <tr><td style='color:#6e6e73'>Limite erreicht</td>
-                        <td style='text-align:right; font-weight:500'>{Limit_Jahr}</td></tr>
-                  </table>
-                </div>""",
-                "style": {
-                    "backgroundColor": "white",
-                    "border": "1px solid #d2d2d7",
-                    "borderRadius": "10px",
-                    "padding": "12px 14px",
-                    "boxShadow": "0 4px 16px rgba(0,0,0,0.10)",
-                },
-            }
-
-            view_state = pdk.ViewState(
-                latitude=47.09, longitude=7.24, zoom=10, pitch=0,
-                transition_duration=800,
-            )
-
-            layer = pdk.Layer(
-                "PolygonLayer", data=features,
-                get_polygon="polygon",
-                get_fill_color="color",
-                get_line_color=[180, 180, 180, 180],
-                line_width_min_pixels=1,
-                pickable=True, filled=True, stroked=True, opacity=0.85,
-            )
-            hl_layer = pdk.Layer(
-                "PolygonLayer", data=hl_features,
-                get_polygon="polygon",
-                get_fill_color=[0, 0, 0, 0],       # transparent fill
-                get_line_color=[30, 30, 30, 255],   # dunkler Rand
-                line_width_min_pixels=3,
-                filled=True, stroked=True,
-            )
+    with col_map:
+        if df.empty:
+            st.warning("Keine Gemeinden entsprechen den aktuellen Filtereinstellungen.")
+        elif not api_verfuegbar:
+            st.info("Gemeindegrenzen konnten nicht geladen werden — Darstellung als Punkte.")
+            df["farbe"]  = df.apply(lambda r: zeitfarbe(r["Jahre_bis_Limit"], r["Schrumpfend"]), axis=1)
+            max_bev      = df_roh["Bev_2024"].max()
+            df["radius"] = (df["Bev_2024"] / max_bev * 2200 + 300).round(0)
+            layer = pdk.Layer("ScatterplotLayer", data=df,
+                              get_position="[lon, lat]", get_fill_color="farbe",
+                              get_radius="radius", pickable=True, opacity=0.85)
+            view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
             st.pydeck_chart(
-                pdk.Deck(
-                    layers=[layer, hl_layer],
-                    initial_view_state=view_state,
-                    tooltip=tooltip,
-                    map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                ),
+                pdk.Deck(layers=[layer], initial_view_state=view,
+                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                         controller=False),
                 use_container_width=True,
-                key="hauptkarte",
             )
+        else:
+            sel_name = st.session_state.selected_gemeinde
+            df_map = df.copy()
+            if sel_name and sel_name not in df_map["Gemeinde"].values:
+                sel_row = df_roh[df_roh["Gemeinde"] == sel_name]
+                if not sel_row.empty:
+                    df_map = pd.concat([df_map, sel_row], ignore_index=True)
 
+            features = erstelle_polygon_features(df_map, geometrien)
+
+            hl_features = []
+            if sel_name and sel_name in geometrien:
+                for ring in geometrien[sel_name]:
+                    hl_features.append({"polygon": [ring]})
+
+            if not features:
+                st.warning("Keine Polygondaten verfügbar. Bitte Seite neu laden.")
+            else:
+                tooltip = {
+                    "html": """
+                    <div style='font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",
+                                Arial,sans-serif; font-size:13px; min-width:220px;
+                                color:#1d1d1f'>
+                      <div style='font-size:15px; font-weight:600;
+                                  margin-bottom:8px'>{Gemeinde} <span
+                        style='font-weight:400; color:#6e6e73'>({Kt})</span></div>
+                      <div style='border-top:1px solid #d2d2d7; margin-bottom:8px'></div>
+                      <table style='width:100%; border-collapse:collapse;
+                                    font-size:12.5px; line-height:1.7'>
+                        <tr><td style='color:#6e6e73'>Bevölkerung 2014</td>
+                            <td style='text-align:right; font-weight:500'>{Bev_2014}</td></tr>
+                        <tr><td style='color:#6e6e73'>Bevölkerung 2024</td>
+                            <td style='text-align:right; font-weight:500'>{Bev_2024}</td></tr>
+                        <tr><td style='color:#6e6e73'>Wachstum in % p. a.</td>
+                            <td style='text-align:right; font-weight:500'>{Wachstumsrate_Pct} %</td></tr>
+                        <tr><td style='color:#6e6e73'>Kontingent bei 10-Millionen-Schweiz</td>
+                            <td style='text-align:right; font-weight:500'>{Kontingent}</td></tr>
+                        <tr><td style='color:#6e6e73'>Verfügbares Wachstum</td>
+                            <td style='text-align:right; font-weight:500'>{Verf_Wachstum}</td></tr>
+                        <tr><td style='color:#6e6e73'>Limite erreicht</td>
+                            <td style='text-align:right; font-weight:500'>{Limit_Jahr}</td></tr>
+                      </table>
+                    </div>""",
+                    "style": {
+                        "backgroundColor": "white",
+                        "border": "1px solid #d2d2d7",
+                        "borderRadius": "10px",
+                        "padding": "12px 14px",
+                        "boxShadow": "0 4px 16px rgba(0,0,0,0.10)",
+                    },
+                }
+
+                view_state = pdk.ViewState(
+                    latitude=47.09, longitude=7.24, zoom=10, pitch=0,
+                    transition_duration=800,
+                )
+
+                layer = pdk.Layer(
+                    "PolygonLayer", data=features,
+                    get_polygon="polygon",
+                    get_fill_color="color",
+                    get_line_color=[180, 180, 180, 180],
+                    line_width_min_pixels=1,
+                    pickable=True, filled=True, stroked=True, opacity=0.85,
+                )
+                hl_layer = pdk.Layer(
+                    "PolygonLayer", data=hl_features,
+                    get_polygon="polygon",
+                    get_fill_color=[0, 0, 0, 0],
+                    get_line_color=[30, 30, 30, 255],
+                    line_width_min_pixels=3,
+                    filled=True, stroked=True,
+                )
+                st.pydeck_chart(
+                    pdk.Deck(
+                        layers=[layer, hl_layer],
+                        initial_view_state=view_state,
+                        tooltip=tooltip,
+                        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                        controller=False,
+                    ),
+                    use_container_width=True,
+                    key="hauptkarte",
+                )
+
+    with col_desc:
+        st.markdown("""
+        <p style='font-size:0.9rem; color:#6e6e73; line-height:1.75; margin:0;
+                  padding-top:0.25rem;'>
+          Die <strong style='color:#3a3a3c;'>10-Millionen-Initiative</strong>
+          will die Einwohnerzahl der Schweiz bei
+          <strong style='color:#3a3a3c;'>10 Millionen</strong> deckeln.
+          Ende 2024 lebten <strong style='color:#3a3a3c;'>9'051'029</strong>
+          Personen in der Schweiz — es bleiben noch
+          <strong style='color:#3a3a3c;'>948'971</strong> Plätze übrig (+10,5 %).
+          Dieses Kontingent wird proportional auf alle Gemeinden verteilt.
+          Die Farben zeigen, wie viele Jahre jede Gemeinde bei aktuellem
+          Wachstum noch hat, bis sie ihr Kontingent ausschöpft.
+        </p>
+        """, unsafe_allow_html=True)
+
+    # Farbskala und Kacheln — volle Breite unterhalb der Spalten
     st.markdown("""
     <div style='display:flex; align-items:center; gap:10px; margin:14px 0 6px;'>
       <span style='font-size:0.72rem; color:#6e6e73;
@@ -962,6 +971,39 @@ with tab_charts:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
     st.plotly_chart(fig3, use_container_width=True)
+
+
+# ── JS-Patch: Sidebar-Gap via window.parent ───────────────────────────────────
+st.components.v1.html("""
+<script>
+(function() {
+    function fixGaps() {
+        try {
+            var doc = window.parent.document;
+            var sb = doc.querySelector('[data-testid="stSidebar"]');
+            if (!sb) return;
+            sb.querySelectorAll('[data-testid="stVerticalBlock"]').forEach(function(el) {
+                el.style.setProperty('gap', '0px', 'important');
+                el.style.setProperty('row-gap', '0px', 'important');
+                el.style.setProperty('padding', '0px', 'important');
+            });
+            sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"]').forEach(function(el) {
+                el.style.setProperty('gap', '0px', 'important');
+                el.style.setProperty('row-gap', '0px', 'important');
+                el.style.setProperty('padding', '0px', 'important');
+                el.style.setProperty('margin', '0px', 'important');
+            });
+            sb.querySelectorAll('div[data-testid="stButton"]').forEach(function(el) {
+                el.style.setProperty('margin', '0px', 'important');
+                el.style.setProperty('padding', '0px', 'important');
+            });
+        } catch(e) {}
+    }
+    fixGaps();
+    setInterval(fixGaps, 600);
+})();
+</script>
+""", height=0)
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
