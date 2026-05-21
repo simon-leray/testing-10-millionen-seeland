@@ -860,6 +860,28 @@ def _render_karte():
               background:linear-gradient(to right,#be1717 0%,#bebe17 50%,#17be17 100%)'></div>
   <span style='font-size:0.72rem;color:#6e6e73;white-space:nowrap'>Limit weit entfernt</span>
 </div>""", unsafe_allow_html=True)
+        # JS: Top-Abstand für Karte-Embed entfernen
+        st.components.v1.html("""
+<script>
+(function(){
+  function fixSpacing(){
+    var doc = window.parent.document;
+    var hdr = doc.querySelector('header[data-testid="stHeader"]');
+    if(hdr){
+      hdr.style.setProperty('height','0','important');
+      hdr.style.setProperty('min-height','0','important');
+      hdr.style.setProperty('padding','0','important');
+      hdr.style.setProperty('margin','0','important');
+      hdr.style.setProperty('overflow','hidden','important');
+    }
+    var bc = doc.querySelector('.block-container');
+    if(bc) bc.style.setProperty('padding-top','0.5rem','important');
+  }
+  fixSpacing();
+  setTimeout(fixSpacing, 300);
+})();
+</script>
+""", height=0)
         return  # Embed: fertig, kein weiterer Inhalt
 
     # ── Vollbild: 2-Spalten-Layout ─────────────────────────────────────────────
@@ -1134,10 +1156,28 @@ def _render_tabelle():
   </table>
 </div>
 """, unsafe_allow_html=True)
-        # Sort-JS via separates Component (window.parent greift auf Streamlit-DOM zu)
+        # JS: Top-Abstand entfernen + Sortierung (window.parent = Streamlit-DOM)
         st.components.v1.html("""
 <script>
 (function(){
+  // ── Top-Abstand via JS entfernen (CSS schlägt Emotion nicht) ───────────────
+  function fixSpacing(){
+    var doc = window.parent.document;
+    var hdr = doc.querySelector('header[data-testid="stHeader"]');
+    if(hdr){
+      hdr.style.setProperty('height','0','important');
+      hdr.style.setProperty('min-height','0','important');
+      hdr.style.setProperty('padding','0','important');
+      hdr.style.setProperty('margin','0','important');
+      hdr.style.setProperty('overflow','hidden','important');
+    }
+    var bc = doc.querySelector('.block-container');
+    if(bc) bc.style.setProperty('padding-top','0.5rem','important');
+  }
+  fixSpacing();
+  setTimeout(fixSpacing, 300);
+
+  // ── Sortierung ──────────────────────────────────────────────────────────────
   function init(){
     var tbl = window.parent.document.getElementById('svp-tbl');
     if(!tbl){ setTimeout(init, 150); return; }
