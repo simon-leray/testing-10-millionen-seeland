@@ -669,7 +669,7 @@ with tab_karte:
             <span style='font-size:1.3rem; font-weight:700;
                          color:#1d1d1f; letter-spacing:-0.3px'>{wert}</span>
             <span style='font-size:0.75rem; color:#6e6e73;
-                         margin-left:4px'>Gem.</span>
+                         margin-left:4px'>Gemeinden</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
