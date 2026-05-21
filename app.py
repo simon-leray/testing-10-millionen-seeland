@@ -34,22 +34,9 @@ html, body, [class*="css"] {
 /* App background */
 .stApp { background-color: #ffffff; }
 
-/* Fixed logo header — erzeugt via JS in parent frame */
-#ajour-logo-header {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 72px;
-    background: #ffffff;
-    border-bottom: 1px solid #d2d2d7;
-    z-index: 99999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Main content area — Platz für den fixierten Header */
+/* Main content area */
 .block-container {
-    padding-top: 5.5rem;
+    padding-top: 3rem;
     padding-bottom: 3rem;
 }
 
@@ -87,9 +74,10 @@ hr {
     width: 280px !important;
     min-width: 280px !important;
 }
-/* Sidebar-Inhalt: Platz für fixierten Header */
+/* Sidebar scrollt nicht selbst — nur der Listen-Container scrollt */
 [data-testid="stSidebarContent"] {
-    padding-top: 84px !important;
+    overflow: hidden !important;
+    padding-top: 1rem !important;
 }
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
@@ -494,39 +482,44 @@ with open("ajour-logo.json") as _f:
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-# Logo via window.parent in einen fixierten Vollbreiten-Header rendern,
-# damit es über Sidebar + Content mittig auf dem Viewport sitzt.
 st.components.v1.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html, body {{
+    margin: 0; padding: 0;
+    background: #ffffff;
+    overflow: hidden;
+    height: 72px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}}
+</style>
+</head>
+<body>
+<div id="logo" style="width:396px; height:72px;"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
 <script>
-(function () {{
-  var P = window.parent.document;
-
-  // Bestehenden Header entfernen (bei Streamlit-Rerun)
-  var old = P.getElementById('ajour-logo-header');
-  if (old) old.remove();
-
-  // Fixierten Header erzeugen
-  var header = P.createElement('div');
-  header.id = 'ajour-logo-header';
-
-  var logoDiv = P.createElement('div');
-  logoDiv.style.cssText = 'width:396px;height:72px;';
-  header.appendChild(logoDiv);
-  P.body.appendChild(header);
-
-  // Lottie in den Parent-Frame-Container rendern
-  lottie.loadAnimation({{
-    container: logoDiv,
+lottie.loadAnimation({{
+    container: document.getElementById('logo'),
     renderer: 'svg',
     loop: true,
     autoplay: true,
     animationData: {_lottie_data}
-  }});
-}})();
+}});
 </script>
-""", height=1)
-st.title("10-Millionen-Initiative — Wachstumspotenzial Seeland/Biel")
+</body>
+</html>
+""", height=72)
+st.title("10-Millionen-Initiative")
+st.markdown(
+    "<div style='font-size:1.2rem; font-weight:400; color:#3a3a3c; "
+    "margin-top:-0.6rem; margin-bottom:0.75rem; letter-spacing:-0.1px;'>"
+    "So viel dürfte das Seeland noch wachsen</div>",
+    unsafe_allow_html=True,
+)
 st.markdown(
     "Die **10-Millionen-Initiative** will die Einwohnerzahl der Schweiz bei **10 Millionen** deckeln. "
     "Ende 2024 lebten **9'051'029** Personen in der Schweiz — es bleiben noch **948'971** Plätze übrig (+10,5 %). "
@@ -576,11 +569,12 @@ with st.sidebar:
             </div>
             """, unsafe_allow_html=True)
 
-    st.divider()
+    if sel:
+        st.divider()
     st.header("Gemeinden")
 
     # Scrollbarer Sub-Container — nur die Liste scrollt, Details-Panel bleibt oben
-    with st.container(height=600, border=False):
+    with st.container(height=500, border=False):
         for _, row in df_roh.sort_values("Gemeinde").iterrows():
             name        = row["Gemeinde"]
             is_selected = st.session_state.selected_gemeinde == name
@@ -754,40 +748,52 @@ with tab_tabelle:
               f"{int(df_roh['Verf_Wachstum'].sum()):,}".replace(",", "'") + " Pers.")
     st.divider()
 
-    df_anz = df_roh[[
-        "Gemeinde",
-        "Bev_2014", "Bev_2024", "Kontingent",
-        "Verf_Wachstum", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_bis_Limit",
-    ]].copy()
-    df_anz["Bev_2014_fmt"]  = df_anz["Bev_2014"].apply(tsd)
-    df_anz["Bev_2024_fmt"]  = df_anz["Bev_2024"].apply(tsd)
-    df_anz["Kont_fmt"]      = df_anz["Kontingent"].apply(tsd)
-    df_anz["Wachst_fmt"]    = df_anz["Verf_Wachstum"].apply(tsd)
-    df_anz["Jahre_Anzeige"] = df_anz["Jahre_bis_Limit"].apply(
-        lambda x: str(int(x)) if pd.notna(x) else "—"
-    )
+    th = ("padding:10px 14px; text-align:left; font-size:0.75rem; font-weight:600; "
+          "text-transform:uppercase; letter-spacing:0.05em; color:#6e6e73; "
+          "border-bottom:2px solid #d2d2d7; background:#f5f5f7; white-space:nowrap;")
+    th_r = th + "text-align:right;"
+    td  = "padding:9px 14px; color:#1d1d1f; border-bottom:1px solid #f0f0f0; font-size:0.875rem;"
+    td_r = td + "text-align:right; font-variant-numeric:tabular-nums;"
 
-    st.dataframe(
-        df_anz[[
-            "Gemeinde",
-            "Bev_2014_fmt", "Bev_2024_fmt", "Kont_fmt",
-            "Wachst_fmt", "Wachstumsrate_Pct", "Limit_Jahr", "Jahre_Anzeige",
-        ]],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Gemeinde":          st.column_config.TextColumn("Gemeinde"),
-            "Bev_2014_fmt":      st.column_config.TextColumn("Bev. 2014"),
-            "Bev_2024_fmt":      st.column_config.TextColumn("Bev. 2024"),
-            "Kont_fmt":          st.column_config.TextColumn("Kontingent"),
-            "Wachst_fmt":        st.column_config.TextColumn("Verf. Wachstum"),
-            "Wachstumsrate_Pct": st.column_config.NumberColumn(
-                "Wachstumsrate p.a. (%)", format="%.2f %%"),
-            "Limit_Jahr":        st.column_config.TextColumn("Limit erreicht"),
-            "Jahre_Anzeige":     st.column_config.TextColumn("Jahre bis Limit"),
-        },
-        height=600,
-    )
+    rows_html = ""
+    for _, r in df_roh.sort_values("Gemeinde").iterrows():
+        jahre = str(int(r["Jahre_bis_Limit"])) if pd.notna(r["Jahre_bis_Limit"]) else "—"
+        wrate = f"{r['Wachstumsrate_Pct']:.2f} %" if pd.notna(r["Wachstumsrate_Pct"]) else "—"
+        rows_html += (
+            f"<tr>"
+            f"<td style='{td}'>{r['Gemeinde']}</td>"
+            f"<td style='{td_r}'>{tsd(r['Bev_2014'])}</td>"
+            f"<td style='{td_r}'>{tsd(r['Bev_2024'])}</td>"
+            f"<td style='{td_r}'>{tsd(r['Kontingent'])}</td>"
+            f"<td style='{td_r}'>{tsd(r['Verf_Wachstum'])}</td>"
+            f"<td style='{td_r}'>{wrate}</td>"
+            f"<td style='{td}'>{r['Limit_Jahr']}</td>"
+            f"<td style='{td_r}'>{jahre}</td>"
+            f"</tr>"
+        )
+
+    st.markdown(f"""
+    <div style="overflow-x:auto; border:1px solid #d2d2d7; border-radius:10px;
+                overflow:hidden; background:#ffffff; max-height:600px; overflow-y:auto;">
+      <table style="width:100%; border-collapse:collapse;
+                    font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+                    background:#ffffff;">
+        <thead style="position:sticky; top:0; z-index:1;">
+          <tr>
+            <th style="{th}">Gemeinde</th>
+            <th style="{th_r}">Bev. 2014</th>
+            <th style="{th_r}">Bev. 2024</th>
+            <th style="{th_r}">Kontingent</th>
+            <th style="{th_r}">Verf. Wachstum</th>
+            <th style="{th_r}">Wachstum p.a.</th>
+            <th style="{th}">Limit erreicht</th>
+            <th style="{th_r}">Jahre bis Limit</th>
+          </tr>
+        </thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════
