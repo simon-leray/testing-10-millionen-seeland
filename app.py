@@ -220,17 +220,21 @@ label[data-testid="stWidgetLabel"] > div > p,
     border: none;
 }
 
-/* Sidebar — Gemeinde-Listenbuttons */
-/* Margin-Nullsteller: Streamlit fügt zwischen Button-Containern Abstände ein */
-[data-testid="stSidebar"] div[data-testid="stButton"],
-[data-testid="stSidebar"] div[data-testid="stButton"] > div {
-    margin: 0 !important;
+/* Sidebar — alle Abstände killen (Streamlit setzt gap via dynamische Emotion-Klassen) */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"],
+[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] > div,
+[data-testid="stSidebarUserContent"] > div,
+[data-testid="stSidebarUserContent"] > div > div {
+    gap: 0 !important;
+    row-gap: 0 !important;
+}
+[data-testid="stSidebar"] div[data-testid="stButton"] {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     padding: 0 !important;
-    gap: 0 !important;
 }
-[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-    gap: 0 !important;
-}
+/* Gemeinde-Listenbuttons */
 [data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
     border: none !important;
@@ -241,7 +245,7 @@ label[data-testid="stWidgetLabel"] > div > p,
     font-weight: 400 !important;
     text-align: left !important;
     justify-content: flex-start !important;
-    padding: 0.3rem 0.25rem !important;
+    padding: 0.3rem 0.5rem !important;
     box-shadow: none !important;
     min-height: 0 !important;
     width: 100% !important;
@@ -253,11 +257,20 @@ label[data-testid="stWidgetLabel"] > div > p,
     border-bottom-color: transparent !important;
     color: #1d1d1f !important;
 }
-/* Sidebar-Header ohne Abstand oben */
+/* Sidebar-Header ohne Abstand */
 [data-testid="stSidebar"] h3 {
     margin-top: 0 !important;
-    margin-bottom: 0.2rem !important;
+    margin-bottom: 0.15rem !important;
     padding-top: 0 !important;
+}
+/* Logo-iframe in Sidebar: kein Margin */
+[data-testid="stSidebar"] [data-testid="stHtml"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stHtml"] iframe {
+    display: block !important;
+    border: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -522,37 +535,6 @@ with open("ajour-logo.json") as _f:
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.components.v1.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-html, body {{
-    margin: 0; padding: 0;
-    background: #ffffff;
-    overflow: hidden;
-    height: 72px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}}
-</style>
-</head>
-<body>
-<div id="logo" style="width:396px; height:72px;"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
-<script>
-lottie.loadAnimation({{
-    container: document.getElementById('logo'),
-    renderer: 'svg',
-    loop: true,
-    autoplay: true,
-    animationData: {_lottie_data}
-}});
-</script>
-</body>
-</html>
-""", height=72)
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.4rem;'>
   <h1 style='font-size:2.4rem; font-weight:700; letter-spacing:-0.5px;
@@ -580,6 +562,23 @@ st.divider()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # Logo ganz oben in der Sidebar (280 px breit, Höhe proportional 280/5.49 ≈ 51 px)
+    st.components.v1.html(f"""
+    <!DOCTYPE html><html><head>
+    <style>
+    html,body{{margin:0;padding:0;background:#f5f5f7;overflow:hidden;
+               width:280px;height:51px;}}
+    </style></head>
+    <body>
+    <div id="logo" style="width:280px;height:51px;"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+    <script>
+    lottie.loadAnimation({{container:document.getElementById('logo'),
+        renderer:'svg',loop:true,autoplay:true,animationData:{_lottie_data}}});
+    </script>
+    </body></html>
+    """, height=51)
+
     if not api_verfuegbar:
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
 
