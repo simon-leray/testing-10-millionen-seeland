@@ -177,7 +177,7 @@ label[data-testid="stWidgetLabel"] > div > p,
     background: transparent;
 }
 .stTabs [data-baseweb="tab"] {
-    font-size: 1rem;
+    font-size: 1.15rem !important;
     font-weight: 500;
     color: #6e6e73;
     padding: 0.625rem 1.125rem;
@@ -584,17 +584,17 @@ with st.sidebar:
     <!DOCTYPE html><html><head>
     <style>
     html,body{{margin:0;padding:0;background:#f5f5f7;overflow:hidden;
-               width:280px;height:51px;}}
+               width:280px;height:65px;}}
     </style></head>
     <body>
-    <div id="logo" style="width:280px;height:51px;"></div>
+    <div id="logo" style="width:280px;height:65px;margin-top:6px;"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
     <script>
     lottie.loadAnimation({{container:document.getElementById('logo'),
         renderer:'svg',loop:true,autoplay:true,animationData:{_lottie_data}}});
     </script>
     </body></html>
-    """, height=51)
+    """, height=71)
 
     if not api_verfuegbar:
         st.caption("Gemeindegrenzen nicht verfügbar — Darstellung als Punkte")
@@ -700,7 +700,8 @@ with tab_karte:
             view = pdk.ViewState(latitude=df["lat"].mean(), longitude=df["lon"].mean(), zoom=10)
             st.pydeck_chart(
                 pdk.Deck(layers=[layer], initial_view_state=view,
-                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"),
+                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                         views=[pdk.View(type="MapView", controller=False)]),
                 use_container_width=True,
             )
         else:
@@ -756,7 +757,7 @@ with tab_karte:
                 }
 
                 view_state = pdk.ViewState(
-                    latitude=47.09, longitude=7.24, zoom=9, pitch=0,
+                    latitude=47.09, longitude=7.24, zoom=9.5, pitch=0,
                     transition_duration=800,
                 )
 
@@ -782,6 +783,7 @@ with tab_karte:
                         initial_view_state=view_state,
                         tooltip=tooltip,
                         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                        views=[pdk.View(type="MapView", controller=False)],
                     ),
                     use_container_width=True,
                     key="hauptkarte",
@@ -1061,74 +1063,61 @@ st.components.v1.html("""
                 });
             }
 
-            // ── Map lock — transparent overlay approach ───────────────────
-            // Overlay sits on top of the canvas: blocks wheel+drag, but
-            // re-dispatches pointermove so deck.gl tooltips still fire.
-            doc.querySelectorAll('[data-testid="stDeckGlJsonChart"]').forEach(function(chart) {
-                if (chart._deckLocked) return;
-                chart._deckLocked = true;
-
-                // Make chart a positioning context
-                chart.style.setProperty('position','relative','important');
-
+            // ── Map lock — overlay on the canvas itself ───────────────────
+            doc.querySelectorAll('[data-testid="stDeckGlJsonChart"] canvas').forEach(function(canvas) {
+                if (canvas._deckLocked) return;
+                canvas._deckLocked = true;
+                var par = canvas.parentElement;
+                if (!par) return;
+                if (getComputedStyle(par).position === 'static') {
+                    par.style.setProperty('position','relative','important');
+                }
                 var ol = doc.createElement('div');
-                ol.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;' +
-                                   'z-index:999;cursor:default;background:transparent;';
+                ol.setAttribute('data-deck-overlay','1');
+                ol.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;' +
+                                   'z-index:9999;cursor:default;background:transparent;';
 
-                // Block zoom
                 ol.addEventListener('wheel', function(e) {
                     e.preventDefault(); e.stopPropagation();
-                }, {passive: false});
+                }, {passive:false});
+                ol.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+                ol.addEventListener('mousedown',   function(e) { e.stopPropagation(); });
+                ol.addEventListener('dblclick',    function(e) { e.preventDefault(); e.stopPropagation(); });
+                ol.addEventListener('touchstart', function(e) { e.preventDefault(); e.stopPropagation(); }, {passive:false});
+                ol.addEventListener('touchmove',  function(e) { e.preventDefault(); e.stopPropagation(); }, {passive:false});
 
-                // Block drag-pan
-                ol.addEventListener('pointerdown', function(e) {
-                    e.stopPropagation();
-                });
-                ol.addEventListener('mousedown', function(e) {
-                    e.stopPropagation();
-                });
-
-                // Block double-click zoom
-                ol.addEventListener('dblclick', function(e) {
-                    e.preventDefault(); e.stopPropagation();
-                });
-
-                // Block touch
-                ol.addEventListener('touchstart', function(e) {
-                    e.preventDefault(); e.stopPropagation();
-                }, {passive: false});
-                ol.addEventListener('touchmove', function(e) {
-                    e.preventDefault(); e.stopPropagation();
-                }, {passive: false});
-
-                // Pass hover through so deck.gl tooltips still work:
-                // temporarily hide overlay → find canvas below → dispatch synthetic event
-                function passHover(e) {
+                // Re-dispatch hover so deck.gl tooltips still fire
+                ol.addEventListener('pointermove', function(e) {
                     ol.style.pointerEvents = 'none';
                     var below = doc.elementFromPoint(e.clientX, e.clientY);
                     ol.style.pointerEvents = '';
                     if (!below || below === ol) return;
-                    try {
-                        below.dispatchEvent(new PointerEvent('pointermove', {
-                            bubbles: true, cancelable: true,
-                            clientX: e.clientX, clientY: e.clientY,
-                            screenX: e.screenX, screenY: e.screenY,
-                            movementX: e.movementX || 0, movementY: e.movementY || 0
-                        }));
-                    } catch(_) {}
-                }
-                ol.addEventListener('pointermove', passHover);
-                ol.addEventListener('pointerleave', function(e) {
-                    ol.style.pointerEvents = 'none';
-                    var below = doc.elementFromPoint(e.clientX, e.clientY);
-                    ol.style.pointerEvents = '';
-                    if (below) try {
-                        below.dispatchEvent(new PointerEvent('pointerleave', {bubbles: false}));
-                    } catch(_) {}
+                    try { below.dispatchEvent(new PointerEvent('pointermove',{
+                        bubbles:true, cancelable:true,
+                        clientX:e.clientX, clientY:e.clientY,
+                        screenX:e.screenX, screenY:e.screenY
+                    })); } catch(_) {}
                 });
 
-                chart.appendChild(ol);
+                par.appendChild(ol);
             });
+
+            // ── Dynamic list-container height (fill remaining sidebar space) ──
+            if (sb) {
+                var viewH = window.parent.innerHeight;
+                sb.querySelectorAll('div').forEach(function(el) {
+                    // st.container(height=N) produces a div with inline height + overflow
+                    if (el.style.height && el.style.height.endsWith('px') &&
+                        (el.style.overflowY === 'auto' || el.style.overflow === 'auto')) {
+                        var rect = el.getBoundingClientRect();
+                        if (rect.height > 80 && rect.top > 60 && rect.top < viewH) {
+                            var fill = Math.max(120, viewH - rect.top - 6);
+                            el.style.setProperty('height', fill + 'px', 'important');
+                            el.style.setProperty('max-height', fill + 'px', 'important');
+                        }
+                    }
+                });
+            }
         } catch(e) {}
     }
     fixAll();
