@@ -579,7 +579,7 @@ with open("ajour-logo.json") as _f:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='text-align:center; padding:0.1rem 0 0.3rem;'>
-  <h1 style='font-size:10rem; font-weight:900; letter-spacing:0px;
+  <h1 style='font-size:10rem; font-weight:1800; letter-spacing:0px;
              color:#1d1d1f; margin:0 0 0.25rem; line-height:0.95;'>
     Initiative «Keine 10-Millionen-Schweiz»
   </h1>
