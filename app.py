@@ -221,6 +221,16 @@ label[data-testid="stWidgetLabel"] > div > p,
 }
 
 /* Sidebar — Gemeinde-Listenbuttons */
+/* Margin-Nullsteller: Streamlit fügt zwischen Button-Containern Abstände ein */
+[data-testid="stSidebar"] div[data-testid="stButton"],
+[data-testid="stSidebar"] div[data-testid="stButton"] > div {
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+}
+[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+    gap: 0 !important;
+}
 [data-testid="stSidebar"] .stButton > button {
     background: transparent !important;
     border: none !important;
@@ -231,9 +241,10 @@ label[data-testid="stWidgetLabel"] > div > p,
     font-weight: 400 !important;
     text-align: left !important;
     justify-content: flex-start !important;
-    padding: 0.45rem 0.25rem !important;
+    padding: 0.3rem 0.25rem !important;
     box-shadow: none !important;
     min-height: 0 !important;
+    width: 100% !important;
     transition: background 0.15s ease, border-radius 0.15s ease !important;
 }
 [data-testid="stSidebar"] .stButton > button:hover {
@@ -241,6 +252,12 @@ label[data-testid="stWidgetLabel"] > div > p,
     border-radius: 6px !important;
     border-bottom-color: transparent !important;
     color: #1d1d1f !important;
+}
+/* Sidebar-Header ohne Abstand oben */
+[data-testid="stSidebar"] h3 {
+    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+    padding-top: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -537,16 +554,16 @@ lottie.loadAnimation({{
 </html>
 """, height=72)
 st.markdown("""
-<div style='text-align:center; padding:0.25rem 0 0.5rem;'>
-  <h1 style='font-size:1.75rem; font-weight:600; letter-spacing:-0.3px;
-             color:#1d1d1f; margin:0 0 0.3rem;'>
+<div style='text-align:center; padding:0.1rem 0 0.4rem;'>
+  <h1 style='font-size:2.4rem; font-weight:700; letter-spacing:-0.5px;
+             color:#1d1d1f; margin:0 0 0.15rem; line-height:1.15;'>
     10-Millionen-Initiative
   </h1>
-  <div style='font-size:1.2rem; font-weight:400; color:#3a3a3c;
-              letter-spacing:-0.1px; margin-bottom:0.75rem;'>
+  <div style='font-size:1.15rem; font-weight:400; color:#3a3a3c;
+              letter-spacing:-0.1px; margin-bottom:0.4rem;'>
     So viel dürfte das Seeland noch wachsen
   </div>
-  <p style='font-size:0.9rem; color:#6e6e73; max-width:680px;
+  <p style='font-size:0.9rem; color:#6e6e73; max-width:100%;
             margin:0 auto; line-height:1.6;'>
     Die <strong style='color:#3a3a3c;'>10-Millionen-Initiative</strong>
     will die Einwohnerzahl der Schweiz bei <strong style='color:#3a3a3c;'>10 Millionen</strong> deckeln.
