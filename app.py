@@ -92,9 +92,22 @@ hr {
 [data-testid="stSidebarContent"] {
     overflow: hidden !important;
     padding: 0 !important;
+    margin: 0 !important;
+}
+[data-testid="stSidebarContent"] > div {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
 }
 [data-testid="stSidebarUserContent"] {
     padding: 0 !important;
+    margin: 0 !important;
+}
+[data-testid="stSidebarUserContent"] > div {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    row-gap: 0 !important;
 }
 [data-testid="stSidebar"] [data-testid="stHeading"] {
     padding: 0.35rem 0.75rem 0.1rem !important;
@@ -348,7 +361,7 @@ def tsd(n) -> str:
     try:
         return f"{int(n):,}".replace(",", "'")
     except (TypeError, ValueError):
-        return str(n)
+        return "—"
 
 
 def zeitfarbe(jahre, schrumpfend) -> list:
@@ -739,6 +752,16 @@ with tab_karte:
                     key="hauptkarte",
                 )
 
+        # Farbskala — nur so breit wie die Karte
+        if not df.empty:
+            st.markdown("""
+<div style='display:flex;align-items:center;gap:10px;margin:8px 0 4px;'>
+  <span style='font-size:0.72rem;color:#6e6e73;white-space:nowrap'>Limit bald erreicht</span>
+  <div style='flex:1;height:6px;border-radius:3px;
+              background:linear-gradient(to right,#be1717 0%,#bebe17 50%,#17be17 100%)'></div>
+  <span style='font-size:0.72rem;color:#6e6e73;white-space:nowrap'>Limit weit entfernt</span>
+</div>""", unsafe_allow_html=True)
+
     with col_desc:
         st.markdown("""
         <p style='font-size:0.9rem; color:#6e6e73; line-height:1.75; margin:0;
@@ -754,19 +777,6 @@ with tab_karte:
           Wachstum noch hat, bis sie ihr Kontingent ausschöpft.
         </p>
         """, unsafe_allow_html=True)
-
-    # Farbskala und Kacheln — volle Breite unterhalb der Spalten
-    st.markdown("""
-    <div style='display:flex; align-items:center; gap:10px; margin:14px 0 6px;'>
-      <span style='font-size:0.72rem; color:#6e6e73;
-                   white-space:nowrap'>Limit bald erreicht</span>
-      <div style='flex:1; height:6px; border-radius:3px;
-                  background:linear-gradient(to right,
-                    #be1717 0%, #bebe17 50%, #17be17 100%)'></div>
-      <span style='font-size:0.72rem; color:#6e6e73;
-                   white-space:nowrap'>Limit weit entfernt</span>
-    </div>
-    """, unsafe_allow_html=True)
 
     st.divider()
     df_w = df_roh[~df_roh["Schrumpfend"]]
@@ -985,20 +995,40 @@ st.components.v1.html("""
             var doc = window.parent.document;
             var sb = doc.querySelector('[data-testid="stSidebar"]');
             if (!sb) return;
-            sb.querySelectorAll('[data-testid="stVerticalBlock"]').forEach(function(el) {
-                el.style.setProperty('gap', '0px', 'important');
-                el.style.setProperty('row-gap', '0px', 'important');
-                el.style.setProperty('padding', '0px', 'important');
+
+            // Kill padding on the direct wrapper chain above the logo
+            ['stSidebarContent','stSidebarUserContent'].forEach(function(tid) {
+                var el = sb.querySelector('[data-testid="' + tid + '"]');
+                if (!el) return;
+                el.style.setProperty('padding','0px','important');
+                el.style.setProperty('margin','0px','important');
+                // also kill children's top padding/gap (Emotion wrappers)
+                Array.from(el.children).forEach(function(c) {
+                    c.style.setProperty('padding-top','0px','important');
+                    c.style.setProperty('margin-top','0px','important');
+                    c.style.setProperty('gap','0px','important');
+                    c.style.setProperty('row-gap','0px','important');
+                    Array.from(c.children).forEach(function(gc) {
+                        gc.style.setProperty('padding-top','0px','important');
+                        gc.style.setProperty('margin-top','0px','important');
+                        gc.style.setProperty('gap','0px','important');
+                        gc.style.setProperty('row-gap','0px','important');
+                    });
+                });
             });
-            sb.querySelectorAll('[data-testid="stVerticalBlockBorderWrapper"]').forEach(function(el) {
-                el.style.setProperty('gap', '0px', 'important');
-                el.style.setProperty('row-gap', '0px', 'important');
-                el.style.setProperty('padding', '0px', 'important');
-                el.style.setProperty('margin', '0px', 'important');
+
+            // Kill gap on all vertical blocks and border wrappers
+            sb.querySelectorAll('[data-testid="stVerticalBlock"],[data-testid="stVerticalBlockBorderWrapper"]').forEach(function(el) {
+                el.style.setProperty('gap','0px','important');
+                el.style.setProperty('row-gap','0px','important');
+                el.style.setProperty('padding','0px','important');
+                el.style.setProperty('margin','0px','important');
             });
+
+            // Kill margins on individual button wrappers
             sb.querySelectorAll('div[data-testid="stButton"]').forEach(function(el) {
-                el.style.setProperty('margin', '0px', 'important');
-                el.style.setProperty('padding', '0px', 'important');
+                el.style.setProperty('margin','0px','important');
+                el.style.setProperty('padding','0px','important');
             });
         } catch(e) {}
     }
