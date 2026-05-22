@@ -1150,11 +1150,11 @@ def _render_tabelle():
       background:#fff;">
     <thead>
       <tr>
-        <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ⇅</th>
-        <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2024 ⇅</th>
-        <th style="{_th_sort_r}" data-col="2" data-type="num">Wachstum p.a. ⇅</th>
-        <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ⇅</th>
-        <th style="{_th_sort}" data-col="4" data-type="str">Limit erreicht ⇅</th>
+        <th style="{_th_sort}" data-col="0" data-type="str" data-label="Gemeinde">Gemeinde ⇅</th>
+        <th style="{_th_sort_r}" data-col="1" data-type="num" data-label="Bev. 2024">Bev. 2024 ⇅</th>
+        <th style="{_th_sort_r}" data-col="2" data-type="num" data-label="Wachstum p.a.">Wachstum p.a. ⇅</th>
+        <th style="{_th_sort_r}" data-col="3" data-type="num" data-label="Kontingent">Kontingent ⇅</th>
+        <th style="{_th_sort}" data-col="4" data-type="str" data-label="Limit erreicht">Limit erreicht ⇅</th>
       </tr>
     </thead>
     <tbody>{rows_html_embed}</tbody>
@@ -1228,9 +1228,9 @@ def _render_tabelle():
         });
         rows.forEach(function(r){ tbody.appendChild(r); });
         tbl.querySelectorAll('thead th').forEach(function(h){
-          h.textContent = h.textContent.replace(/ [↑↓⇅]$/,'') + ' ⇅';
+          h.textContent = h.dataset.label + ' ⇅';
         });
-        this.textContent = this.textContent.replace(/ [↑↓⇅]$/,'') + (asc[col]?' ↑':' ↓');
+        this.textContent = this.dataset.label + (asc[col]?' ↑':' ↓');
       });
     });
   }
