@@ -1138,6 +1138,9 @@ def _render_tabelle():
         st.markdown(f"""
 <style>
 #svp-tbl thead th {{ position: sticky; top: 0; z-index: 10; }}
+#svp-tbl td:first-child,
+#svp-tbl th:first-child {{ position: sticky; left: 0; z-index: 5; background: #fff; }}
+#svp-tbl thead th:first-child {{ z-index: 15; background: #f5f5f7; }}
 #svp-tbl-wrap::-webkit-scrollbar {{ height: 4px; }}
 #svp-tbl-wrap::-webkit-scrollbar-track {{ background: #f5f5f7; border-radius: 2px; }}
 #svp-tbl-wrap::-webkit-scrollbar-thumb {{ background: #c8c8cc; border-radius: 2px; }}
