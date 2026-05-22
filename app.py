@@ -1150,11 +1150,11 @@ def _render_tabelle():
       background:#fff;">
     <thead>
       <tr>
-        <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕</th>
-        <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2024 ↕</th>
-        <th style="{_th_sort_r}" data-col="2" data-type="num">Wachstum p.a. ↕</th>
-        <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ↕</th>
-        <th style="{_th_sort}" data-col="4" data-type="str">Limit erreicht ↕</th>
+        <th style="{_th_sort}" data-col="0" data-type="str">Gemeinde ↕&#xFE0E;</th>
+        <th style="{_th_sort_r}" data-col="1" data-type="num">Bev. 2024 ↕&#xFE0E;</th>
+        <th style="{_th_sort_r}" data-col="2" data-type="num">Wachstum p.a. ↕&#xFE0E;</th>
+        <th style="{_th_sort_r}" data-col="3" data-type="num">Kontingent ↕&#xFE0E;</th>
+        <th style="{_th_sort}" data-col="4" data-type="str">Limit erreicht ↕&#xFE0E;</th>
       </tr>
     </thead>
     <tbody>{rows_html_embed}</tbody>
@@ -1228,9 +1228,9 @@ def _render_tabelle():
         });
         rows.forEach(function(r){ tbody.appendChild(r); });
         tbl.querySelectorAll('thead th').forEach(function(h){
-          h.textContent = h.textContent.replace(/ [↑↓↕]$/,'') + ' ↕';
+          h.textContent = h.textContent.replace(/ [↑↓↕]︎?$/,'') + ' ↕︎';
         });
-        this.textContent = this.textContent.replace(/ [↑↓↕]$/,'') + (asc[col]?' ↑':' ↓');
+        this.textContent = this.textContent.replace(/ [↑↓↕]︎?$/,'') + (asc[col]?' ↑︎':' ↓︎');
       });
     });
   }
