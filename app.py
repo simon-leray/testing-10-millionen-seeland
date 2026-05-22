@@ -801,8 +801,8 @@ def _render_karte():
                     },
                 }
                 view_state = pdk.ViewState(
-                    latitude=47.09, longitude=7.24, zoom=9.5, pitch=0,
-                    min_zoom=8.5, max_zoom=14,
+                    latitude=47.09, longitude=7.24, zoom=9.0, pitch=0,
+                    min_zoom=8.0, max_zoom=14,
                     transition_duration=800,
                 )
                 layer = pdk.Layer(
@@ -833,6 +833,7 @@ def _render_karte():
                             "dragPan": False,
                             "dragRotate": False,
                             "touchRotate": False,
+                            "touchZoom": True,
                         })],
                     ),
                     use_container_width=True,
@@ -1137,10 +1138,14 @@ def _render_tabelle():
         st.markdown(f"""
 <style>
 #svp-tbl thead th {{ position: sticky; top: 0; z-index: 10; }}
+#svp-tbl-wrap::-webkit-scrollbar {{ height: 4px; }}
+#svp-tbl-wrap::-webkit-scrollbar-track {{ background: #f5f5f7; border-radius: 2px; }}
+#svp-tbl-wrap::-webkit-scrollbar-thumb {{ background: #c8c8cc; border-radius: 2px; }}
 </style>
 <div id="svp-tbl-wrap" style="border:1px solid #d2d2d7; border-radius:10px;
-     overflow:hidden; background:#fff;">
-  <table id="svp-tbl" style="width:100%; border-collapse:collapse;
+     overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+     background:#fff; position:relative;">
+  <table id="svp-tbl" style="min-width:480px; width:100%; border-collapse:collapse;
       font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
       background:#fff;">
     <thead>
@@ -1176,6 +1181,27 @@ def _render_tabelle():
   }
   fixSpacing();
   setTimeout(fixSpacing, 300);
+
+  // ── Scroll-Hint (rechter Schatten wenn Tabelle scrollbar ist) ──────────────
+  function initScrollHint(){
+    var doc = window.parent.document;
+    var wrap = doc.getElementById('svp-tbl-wrap');
+    if(!wrap){ setTimeout(initScrollHint, 150); return; }
+    function updateShadow(){
+      var atEnd = wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth - 2;
+      var atStart = wrap.scrollLeft <= 2;
+      var needsScroll = wrap.scrollWidth > wrap.clientWidth + 4;
+      wrap.style.boxShadow = needsScroll && !atEnd
+        ? 'inset -12px 0 10px -6px rgba(0,0,0,0.08)'
+        : (needsScroll && !atStart
+            ? 'inset 12px 0 10px -6px rgba(0,0,0,0.08)'
+            : 'none');
+    }
+    wrap.addEventListener('scroll', updateShadow);
+    updateShadow();
+    setTimeout(updateShadow, 300);
+  }
+  initScrollHint();
 
   // ── Sortierung ──────────────────────────────────────────────────────────────
   function init(){
